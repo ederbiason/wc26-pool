@@ -18,7 +18,7 @@ function groupByDate(matches: Match[]): Record<string, Match[]> {
 
 function CalendarMatchCard({ match }: { match: Match }) {
   return (
-    <div className="bg-[#112B1E] rounded-xl border border-[#1E4A32] px-4 py-3 flex items-center gap-4">
+    <div className="bg-brand-surface rounded-xl border border-[#1E4A32] px-4 py-3 flex items-center gap-4">
       <div className="flex flex-col items-center w-12 flex-none">
         {match.homeTeamFlag ? (
           <img
@@ -66,8 +66,8 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col flex-1">
-      <header className="sticky top-0 z-30 bg-[#0A2E1E]/95 backdrop-blur-md border-b border-[#1E4A32] px-4 h-14 flex items-center">
-        <h1 className="font-display text-[#FFD600] text-2xl tracking-wider leading-none">
+      <header className="sticky top-0 z-30 bg-brand-green/95 backdrop-blur-md border-b border-[#1E4A32] px-4 h-14 flex items-center">
+        <h1 className="font-display text-brand-gold text-2xl tracking-wider leading-none">
           AGENDA
         </h1>
       </header>
@@ -100,7 +100,7 @@ export default function CalendarPage() {
 
         {dates.map((date) => (
           <section key={date} className="flex flex-col gap-2">
-            <h2 className="text-[#FFD600] text-xs font-bold uppercase tracking-widest px-1 capitalize">
+            <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest px-1">
               {formatDateBrasilia(grouped[date][0].matchDate)}
             </h2>
             {grouped[date].map((m) => (

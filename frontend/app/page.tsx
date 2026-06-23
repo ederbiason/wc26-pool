@@ -52,7 +52,7 @@ export default function HomePage() {
       <AppHeader />
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
         <div>
-          <h1 className="font-display text-[#FFD600] text-3xl tracking-wider leading-none">
+          <h1 className="font-display text-brand-gold text-3xl tracking-wider leading-none">
             JOGOS DE HOJE
           </h1>
           <p className="text-[#86B59A] text-sm mt-0.5">

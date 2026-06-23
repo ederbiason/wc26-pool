@@ -13,8 +13,8 @@ export default function RankingPage() {
 
   return (
     <div className="flex flex-col flex-1">
-      <header className="sticky top-0 z-30 bg-[#0A2E1E]/95 backdrop-blur-md border-b border-[#1E4A32] px-4 h-14 flex items-center">
-        <h1 className="font-display text-[#FFD600] text-2xl tracking-wider leading-none">
+      <header className="sticky top-0 z-30 bg-brand-green/95 backdrop-blur-md border-b border-[#1E4A32] px-4 h-14 flex items-center">
+        <h1 className="font-display text-brand-gold text-2xl tracking-wider leading-none">
           RANKING
         </h1>
       </header>
@@ -25,7 +25,7 @@ export default function RankingPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-16 rounded-xl bg-[#112B1E] border border-[#1E4A32] animate-pulse"
+                className="h-16 rounded-xl bg-brand-surface border border-[#1E4A32] animate-pulse"
               />
             ))}
           </div>
