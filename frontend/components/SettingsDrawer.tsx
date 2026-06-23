@@ -43,12 +43,12 @@ export function SettingsDrawer({ open, onClose }: Props) {
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-lg bg-[#112B1E] rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom-8 duration-300"
+        className="relative w-full max-w-lg bg-brand-surface rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom-8 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto w-10 h-1 rounded-full bg-[#1E4A32] mb-6" />
 
-        <h2 className="font-display text-[#FFD600] text-2xl tracking-wider mb-1">
+        <h2 className="font-display text-brand-gold text-2xl tracking-wider mb-1">
           CONFIGURAÇÕES
         </h2>
         <p className="text-[#86B59A] text-sm mb-6">
@@ -64,7 +64,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
               id="reveal-btn"
               onClick={handleReveal}
               disabled={revealing}
-              className="touch-target flex items-center gap-3 w-full px-4 rounded-xl bg-[#1A3D2B] border border-[#FFD600]/30 hover:border-[#FFD600] text-[#FFD600] font-semibold text-sm transition-all duration-150 disabled:opacity-50"
+              className="touch-target flex items-center gap-3 w-full px-4 rounded-xl bg-brand-surface2 border border-brand-gold/30 hover:border-brand-gold text-brand-gold font-semibold text-sm transition-all duration-150 disabled:opacity-50"
             >
               <Eye size={18} />
               {revealing ? "Revelando..." : "Revelar palpites de hoje"}
@@ -74,7 +74,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
           <button
             id="logout-btn"
             onClick={handleLogout}
-            className="touch-target flex items-center gap-3 w-full px-4 rounded-xl bg-[#1A3D2B] border border-[#1E4A32] hover:border-red-500/50 text-[#86B59A] hover:text-red-400 font-semibold text-sm transition-all duration-150"
+            className="touch-target flex items-center gap-3 w-full px-4 rounded-xl bg-brand-surface2 border border-[#1E4A32] hover:border-red-500/50 text-[#86B59A] hover:text-red-400 font-semibold text-sm transition-all duration-150"
           >
             <LogOut size={18} />
             Trocar usuário

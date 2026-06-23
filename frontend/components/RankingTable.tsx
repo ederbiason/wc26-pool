@@ -20,9 +20,7 @@ export function RankingTable({ ranking }: Props) {
           <div
             key={entry.participantId}
             className={`flex items-center gap-4 px-4 py-3 rounded-xl border transition-all ${
-              isMe
-                ? "bg-[#FFD600]/10 border-[#FFD600]/40"
-                : "bg-[#112B1E] border-[#1E4A32]"
+              isMe ? "bg-brand-gold/10 border-brand-gold/40" : "bg-brand-surface border-[#1E4A32]"
             }`}
           >
             <span className="text-xl w-8 text-center flex-none">
@@ -35,12 +33,12 @@ export function RankingTable({ ranking }: Props) {
 
             <span
               className={`flex-1 font-semibold text-sm ${
-                isMe ? "text-[#FFD600]" : "text-[#E8F5E9]"
+                isMe ? "text-brand-gold" : "text-[#E8F5E9]"
               }`}
             >
               {entry.name}
               {isMe && (
-                <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-[#FFD600]/70">
+                <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-brand-gold/70">
                   você
                 </span>
               )}
@@ -49,7 +47,7 @@ export function RankingTable({ ranking }: Props) {
             <div className="flex flex-col items-end flex-none">
               <span
                 className={`font-display text-2xl tabular-nums leading-none ${
-                  isMe ? "text-[#FFD600]" : "text-[#E8F5E9]"
+                  isMe ? "text-brand-gold" : "text-[#E8F5E9]"
                 }`}
               >
                 {entry.totalPoints}

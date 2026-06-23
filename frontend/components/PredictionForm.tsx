@@ -57,7 +57,7 @@ export function PredictionForm({ matchId, onSuccess }: Props) {
           value={home}
           onChange={(e) => setHome(e.target.value)}
           placeholder="0"
-          className="w-12 h-10 text-center text-lg font-bold bg-[#1A3D2B] border border-[#1E4A32] rounded-lg text-[#E8F5E9] focus:outline-none focus:border-[#FFD600] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-12 h-10 text-center text-lg font-bold bg-brand-surface2 border border-[#1E4A32] rounded-lg text-[#E8F5E9] focus:outline-none focus:border-brand-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <span className="text-[#86B59A] font-bold">×</span>
         <input
@@ -68,14 +68,14 @@ export function PredictionForm({ matchId, onSuccess }: Props) {
           value={away}
           onChange={(e) => setAway(e.target.value)}
           placeholder="0"
-          className="w-12 h-10 text-center text-lg font-bold bg-[#1A3D2B] border border-[#1E4A32] rounded-lg text-[#E8F5E9] focus:outline-none focus:border-[#FFD600] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-12 h-10 text-center text-lg font-bold bg-brand-surface2 border border-[#1E4A32] rounded-lg text-[#E8F5E9] focus:outline-none focus:border-brand-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
       <button
         id={`pred-submit-${matchId}`}
         onClick={handleSubmit}
         disabled={loading}
-        className="touch-target flex items-center px-4 rounded-lg bg-[#FFD600] text-[#0A2E1E] font-bold text-sm hover:bg-[#FFE033] active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="touch-target flex items-center px-4 rounded-lg bg-brand-gold text-brand-green font-bold text-sm hover:bg-[#FFE033] active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? "..." : "Palpitar"}
       </button>

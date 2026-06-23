@@ -17,8 +17,8 @@ interface Props {
 function StatusBadge({ status }: { status: Match["status"] }) {
   if (status === "NotStarted")
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[#FFD600] bg-[#FFD600]/10 rounded-full px-2 py-0.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#FFD600] animate-pulse" />
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-gold bg-brand-gold/10 rounded-full px-2 py-0.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse" />
         Em breve
       </span>
     );
@@ -53,7 +53,7 @@ function TeamBlock({
         isLeft ? "text-left" : "text-right"
       }`}
     >
-      <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#1A3D2B] flex items-center justify-center shadow-lg">
+      <div className="w-12 h-12 rounded-xl overflow-hidden bg-brand-surface2 flex items-center justify-center shadow-lg">
         {flagUrl ? (
           <img
             src={flagUrl}
@@ -83,13 +83,13 @@ function ScoreDisplay({ match }: { match: Match }) {
   if (hasScore) {
     return (
       <div className="flex items-center gap-2 min-w-[80px] justify-center">
-        <span className="font-display text-5xl text-[#FFD600] leading-none tabular-nums">
+        <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
           {match.homeScore}
         </span>
         <span className="font-display text-2xl text-[#1E4A32] leading-none">
           ×
         </span>
-        <span className="font-display text-5xl text-[#FFD600] leading-none tabular-nums">
+        <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
           {match.awayScore}
         </span>
       </div>
@@ -118,7 +118,7 @@ function PredictionRow({ prediction }: { prediction: Prediction }) {
         {prediction.predictedHomeScore} × {prediction.predictedAwayScore}
       </span>
       {prediction.pointsEarned !== null && (
-        <span className="text-[#FFD600] font-bold text-xs ml-2">
+        <span className="text-brand-gold font-bold text-xs ml-2">
           +{prediction.pointsEarned}
         </span>
       )}
@@ -165,7 +165,7 @@ export function MatchCard({
   }, [onPredicted]);
 
   return (
-    <div className="bg-[#112B1E] rounded-2xl border border-[#1E4A32] overflow-hidden">
+    <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <StatusBadge status={match.status} />
         {match.status === "NotStarted" && (
@@ -221,7 +221,7 @@ export function MatchCard({
         <div className="px-4 pb-3 border-t border-[#1E4A32] pt-3">
           <p className="text-[#86B59A] text-xs">
             Aguardando vez de{" "}
-            <span className="text-[#FFD600] font-semibold">
+            <span className="text-brand-gold font-semibold">
               {currentTurn?.participantName}
             </span>
             …
