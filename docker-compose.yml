@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17
+    container_name: wc26pool-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wc26pool_dev
+    ports:
+      - "5433:5432" # Changed to 5433 because 5432 is in use
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
