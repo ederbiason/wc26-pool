@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using WC26Pool.API.Models;
 
 namespace WC26Pool.API.Services;
@@ -6,18 +7,18 @@ namespace WC26Pool.API.Services;
 public class FootballApiService(HttpClient httpClient, IConfiguration configuration, ILogger<FootballApiService> logger)
 {
     private readonly string _apiKey = configuration["FootballApi:ApiKey"] ?? string.Empty;
-    private readonly string _baseUrl = configuration["FootballApi:BaseUrl"] ?? "https://api-football-v1.p.rapidapi.com/v3";
-    private readonly int _leagueId = int.Parse(configuration["FootballApi:LeagueId"] ?? "1");
+    private readonly string _baseUrl = configuration["FootballApi:BaseUrl"] ?? "https://api.football-data.org/v4";
+    private readonly string _competitionId = configuration["FootballApi:LeagueId"] ?? "WC";
 
     public async Task<List<FootballApiMatch>> GetMatchesForDateAsync(DateOnly date, CancellationToken cancellationToken = default)
     {
         try
         {
+            var dateStr = date.ToString("yyyy-MM-dd");
             var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{_baseUrl}/fixtures?league={_leagueId}&season=2026&date={date:yyyy-MM-dd}");
+                $"{_baseUrl}/competitions/{_competitionId}/matches?dateFrom={dateStr}&dateTo={dateStr}");
 
-            request.Headers.Add("X-RapidAPI-Key", _apiKey);
-            request.Headers.Add("X-RapidAPI-Host", "api-football-v1.p.rapidapi.com");
+            request.Headers.Add("X-Auth-Token", _apiKey);
 
             var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -28,7 +29,7 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
                 PropertyNameCaseInsensitive = true
             });
 
-            return result?.Response ?? [];
+            return result?.Matches ?? [];
         }
         catch (Exception ex)
         {
@@ -38,35 +39,39 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
     }
 }
 
-public record FootballApiResponse(List<FootballApiMatch> Response);
+public record FootballApiResponse(List<FootballApiMatch> Matches);
 
 public record FootballApiMatch(
-    FootballApiFixture Fixture,
-    FootballApiTeams Teams,
-    FootballApiGoals Goals
-);
-
-public record FootballApiFixture(
     int Id,
-    FootballApiStatus Status,
-    string Date
+    string UtcDate,
+    string Status,
+    FootballApiTeam HomeTeam,
+    FootballApiTeam AwayTeam,
+    FootballApiScore Score
 );
 
-public record FootballApiStatus(string Short, string Long);
+public record FootballApiTeam(
+    int Id,
+    string Name,
+    string Crest
+);
 
-public record FootballApiTeams(FootballApiTeam Home, FootballApiTeam Away);
+public record FootballApiScore(
+    FootballApiScoreDetail? FullTime
+);
 
-public record FootballApiTeam(int Id, string Name, string Logo);
-
-public record FootballApiGoals(int? Home, int? Away);
+public record FootballApiScoreDetail(
+    int? Home,
+    int? Away
+);
 
 public static class FootballApiMatchStatusMapper
 {
-    public static MatchStatus MapStatus(string shortStatus) => shortStatus switch
+    public static MatchStatus MapStatus(string status) => status?.ToUpper() switch
     {
-        "NS" => MatchStatus.NotStarted,
-        "1H" or "HT" or "2H" or "ET" or "BT" or "P" or "SUSP" or "INT" or "LIVE" => MatchStatus.InProgress,
-        "FT" or "AET" or "PEN" => MatchStatus.Finished,
+        "SCHEDULED" or "TIMED" or "POSTPONED" or "CANCELLED" or "SUSPENDED" => MatchStatus.NotStarted,
+        "IN_PLAY" or "PAUSED" => MatchStatus.InProgress,
+        "FINISHED" or "AWARDED" => MatchStatus.Finished,
         _ => MatchStatus.NotStarted
     };
 }

@@ -1,0 +1,6 @@
+@WC26Pool.API_HostAddress = http://localhost:5040
+
+GET {{WC26Pool.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

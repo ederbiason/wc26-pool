@@ -84,8 +84,8 @@ public class FootballPollingService(
     {
         foreach (var apiMatch in apiMatches)
         {
-            var externalId = apiMatch.Fixture.Id.ToString();
-            var newStatus = FootballApiMatchStatusMapper.MapStatus(apiMatch.Fixture.Status.Short);
+            var externalId = apiMatch.Id.ToString();
+            var newStatus = FootballApiMatchStatusMapper.MapStatus(apiMatch.Status);
 
             var existing = await db.Matches
                 .FirstOrDefaultAsync(m => m.ExternalId == externalId, cancellationToken);
@@ -95,14 +95,14 @@ public class FootballPollingService(
                 db.Matches.Add(new Match
                 {
                     ExternalId = externalId,
-                    HomeTeam = apiMatch.Teams.Home.Name,
-                    AwayTeam = apiMatch.Teams.Away.Name,
-                    HomeTeamFlag = apiMatch.Teams.Home.Logo,
-                    AwayTeamFlag = apiMatch.Teams.Away.Logo,
-                    MatchDate = DateTimeOffset.Parse(apiMatch.Fixture.Date),
+                    HomeTeam = apiMatch.HomeTeam?.Name ?? "TBD",
+                    AwayTeam = apiMatch.AwayTeam?.Name ?? "TBD",
+                    HomeTeamFlag = apiMatch.HomeTeam?.Crest ?? string.Empty,
+                    AwayTeamFlag = apiMatch.AwayTeam?.Crest ?? string.Empty,
+                    MatchDate = DateTimeOffset.Parse(apiMatch.UtcDate),
                     Status = newStatus,
-                    HomeScore = apiMatch.Goals.Home,
-                    AwayScore = apiMatch.Goals.Away,
+                    HomeScore = apiMatch.Score?.FullTime?.Home,
+                    AwayScore = apiMatch.Score?.FullTime?.Away,
                     PointsCalculated = false
                 });
             }
@@ -110,8 +110,8 @@ public class FootballPollingService(
             {
                 var previousStatus = existing.Status;
                 existing.Status = newStatus;
-                existing.HomeScore = apiMatch.Goals.Home;
-                existing.AwayScore = apiMatch.Goals.Away;
+                existing.HomeScore = apiMatch.Score?.FullTime?.Home;
+                existing.AwayScore = apiMatch.Score?.FullTime?.Away;
 
                 if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished)
                 {
