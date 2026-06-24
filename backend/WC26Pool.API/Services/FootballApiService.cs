@@ -11,12 +11,14 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
     private readonly string _competitionId = configuration["FootballApi:LeagueId"] ?? "WC";
 
     public async Task<List<FootballApiMatch>> GetMatchesForDateAsync(DateOnly date, CancellationToken cancellationToken = default)
+        => await GetMatchesForRangeAsync(date, date, cancellationToken);
+
+    public async Task<List<FootballApiMatch>> GetMatchesForRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
         try
         {
-            var dateStr = date.ToString("yyyy-MM-dd");
             var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{_baseUrl}/competitions/{_competitionId}/matches?dateFrom={dateStr}&dateTo={dateStr}");
+                $"{_baseUrl}/competitions/{_competitionId}/matches?dateFrom={from:yyyy-MM-dd}&dateTo={to:yyyy-MM-dd}");
 
             request.Headers.Add("X-Auth-Token", _apiKey);
 
@@ -33,7 +35,7 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch matches for date {Date}", date);
+            logger.LogError(ex, "Failed to fetch matches for range {From} to {To}", from, to);
             return [];
         }
     }
@@ -70,7 +72,7 @@ public static class FootballApiMatchStatusMapper
     public static MatchStatus MapStatus(string status) => status?.ToUpper() switch
     {
         "SCHEDULED" or "TIMED" or "POSTPONED" or "CANCELLED" or "SUSPENDED" => MatchStatus.NotStarted,
-        "IN_PLAY" or "PAUSED" => MatchStatus.InProgress,
+        "IN_PLAY" or "PAUSED" or "HALFTIME" or "EXTRA_TIME" or "PENALTY_SHOOTOUT" => MatchStatus.InProgress,
         "FINISHED" or "AWARDED" => MatchStatus.Finished,
         _ => MatchStatus.NotStarted
     };
