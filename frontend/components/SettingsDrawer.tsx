@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { LogOut, Eye } from "lucide-react";
-import { toast } from "sonner";
+import { LogOut } from "lucide-react";
 import { useIdentity } from "@/components/IdentityProvider";
-import { api, todayDateParam } from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -13,25 +10,10 @@ interface Props {
 
 export function SettingsDrawer({ open, onClose }: Props) {
   const { identity, logout } = useIdentity();
-  const [revealing, setRevealing] = useState(false);
 
   const handleLogout = () => {
     logout();
     onClose();
-  };
-
-  const handleReveal = async () => {
-    setRevealing(true);
-    try {
-      const date = todayDateParam();
-      await api.revealPredictions(date);
-      toast.success("Palpites de hoje revelados!");
-      onClose();
-    } catch {
-      toast.error("Não foi possível revelar os palpites.");
-    } finally {
-      setRevealing(false);
-    }
   };
 
   if (!open) return null;
@@ -59,18 +41,6 @@ export function SettingsDrawer({ open, onClose }: Props) {
         </p>
 
         <div className="flex flex-col gap-3">
-          {identity?.isAdmin && (
-            <button
-              id="reveal-btn"
-              onClick={handleReveal}
-              disabled={revealing}
-              className="touch-target flex items-center gap-3 w-full px-4 rounded-xl bg-brand-surface2 border border-brand-gold/30 hover:border-brand-gold text-brand-gold font-semibold text-sm transition-all duration-150 disabled:opacity-50"
-            >
-              <Eye size={18} />
-              {revealing ? "Revelando..." : "Revelar palpites de hoje"}
-            </button>
-          )}
-
           <button
             id="logout-btn"
             onClick={handleLogout}
