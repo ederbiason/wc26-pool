@@ -25,9 +25,20 @@ export interface Prediction {
   pointsEarned: number | null;
 }
 
-export interface PredictionsDay {
-  revealed: boolean;
+export interface ParticipantSummary {
+  participantId: number;
+  participantName: string;
+}
+
+export interface PredictionVisibility {
+  isRevealed: boolean;
   predictions: Prediction[];
+  completedParticipants: ParticipantSummary[];
+  pendingParticipants: ParticipantSummary[];
+}
+
+export interface MatchWithVisibility extends Match {
+  predictionVisibility: PredictionVisibility;
 }
 
 export interface DayPredictionOrder {

@@ -1,14 +1,13 @@
 import { getIdentity } from "@/lib/storage";
 import type {
   Match,
+  MatchWithVisibility,
   Participant,
-  Prediction,
-  PredictionsDay,
   DayPredictionOrder,
   RankingEntry,
 } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5040";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 function buildHeaders(): HeadersInit {
   const identity = getIdentity();
@@ -51,7 +50,7 @@ export const api = {
   getMatchesUpcoming: () => get<Match[]>("/api/matches/upcoming"),
 
   getPredictionsForDay: (date: string) =>
-    get<PredictionsDay>(`/api/predictions/day/${date}`),
+    get<MatchWithVisibility[]>(`/api/predictions/day/${date}`),
 
   getPredictionOrder: (date: string) =>
     get<DayPredictionOrder[]>(`/api/predictions/order/${date}`),
@@ -64,14 +63,7 @@ export const api = {
   }) => post<{ id: number }>("/api/predictions", payload),
 
   getRanking: () => get<RankingEntry[]>("/api/ranking"),
-
-  revealPredictions: (date: string) =>
-    post<{ message: string }>(`/api/admin/reveal/${date}`),
 };
-
-export function matchDateToBrasilia(utcDateString: string): Date {
-  return new Date(utcDateString);
-}
 
 export function formatTimeBrasilia(utcDateString: string): string {
   return new Date(utcDateString).toLocaleTimeString("pt-BR", {
@@ -91,16 +83,7 @@ export function formatDateBrasilia(utcDateString: string): string {
 }
 
 export function todayDateParam(): string {
-  return new Date()
-    .toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-}
-
-export function myPredictionForMatch(
-  predictions: Prediction[],
-  matchId: number,
-  participantId: number
-): Prediction | undefined {
-  return predictions.find(
-    (p) => p.matchId === matchId && p.participantId === participantId
-  );
+  return new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
 }
