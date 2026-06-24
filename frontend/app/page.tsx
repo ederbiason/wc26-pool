@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import useSWR from "swr";
 import { AppHeader } from "@/components/AppHeader";
 import { MatchCard } from "@/components/MatchCard";
 import { MatchCardSkeleton } from "@/components/MatchCardSkeleton";
 import { api, todayDateParam } from "@/lib/api";
-import type { Match } from "@/types";
+import type { Match, MatchWithVisibility } from "@/types";
 
 const POLL_INTERVAL = 60_000;
 
@@ -30,22 +30,22 @@ export default function HomePage() {
   });
 
   const {
-    data: predictionsDay,
-    mutate: mutatePredictions,
-  } = useSWR(`predictions-day-${today}`, () =>
-    api.getPredictionsForDay(today)
-  );
-
-  const { data: order, mutate: mutateOrder } = useSWR(
-    `order-${today}`,
-    () => api.getPredictionOrder(today)
+    data: matchesWithVisibility,
+    mutate: mutateVisibility,
+  } = useSWR(
+    `predictions-day-${today}`,
+    () => api.getPredictionsForDay(today),
+    { refreshInterval: (data) => (shouldPollVisibility(data) ? POLL_INTERVAL : 0) }
   );
 
   const handlePredicted = useCallback(() => {
-    mutatePredictions();
-    mutateOrder();
+    mutateVisibility();
     mutateMatches();
-  }, [mutatePredictions, mutateOrder, mutateMatches]);
+  }, [mutateVisibility, mutateMatches]);
+
+  const visibilityByMatchId = new Map<number, MatchWithVisibility["predictionVisibility"]>(
+    matchesWithVisibility?.map((m) => [m.id, m.predictionVisibility]) ?? []
+  );
 
   return (
     <div className="flex flex-col flex-1">
@@ -98,13 +98,18 @@ export default function HomePage() {
             <MatchCard
               key={match.id}
               match={match}
-              predictions={predictionsDay?.predictions ?? []}
-              revealed={predictionsDay?.revealed ?? false}
-              order={order ?? []}
+              visibility={visibilityByMatchId.get(match.id) ?? null}
               onPredicted={handlePredicted}
             />
           ))}
       </main>
     </div>
   );
+}
+
+function shouldPollVisibility(
+  data: MatchWithVisibility[] | undefined
+): boolean {
+  if (!data || data.length === 0) return false;
+  return data.some((m) => !m.predictionVisibility.isRevealed);
 }

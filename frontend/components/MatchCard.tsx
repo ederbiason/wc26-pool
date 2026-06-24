@@ -1,16 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Match, Prediction, DayPredictionOrder } from "@/types";
+import type { Match, PredictionVisibility, Prediction } from "@/types";
 import { useIdentity } from "@/components/IdentityProvider";
 import { PredictionForm } from "@/components/PredictionForm";
-import { formatTimeBrasilia, myPredictionForMatch } from "@/lib/api";
+import { formatTimeBrasilia } from "@/lib/api";
 
 interface Props {
   match: Match;
-  predictions: Prediction[];
-  revealed: boolean;
-  order: DayPredictionOrder[];
+  visibility: PredictionVisibility | null;
   onPredicted: () => void;
 }
 
@@ -46,11 +44,10 @@ function TeamBlock({
   flagUrl: string;
   align: "left" | "right";
 }) {
-  const isLeft = align === "left";
   return (
     <div
       className={`flex flex-col items-center gap-1.5 w-[90px] ${
-        isLeft ? "text-left" : "text-right"
+        align === "left" ? "text-left" : "text-right"
       }`}
     >
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-brand-surface2 flex items-center justify-center shadow-lg">
@@ -108,76 +105,93 @@ function ScoreDisplay({ match }: { match: Match }) {
   );
 }
 
-function PredictionRow({ prediction }: { prediction: Prediction }) {
+function RevealedPredictionRow({ prediction }: { prediction: Prediction }) {
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-[#86B59A] truncate max-w-[100px]">
+    <div className="flex items-center justify-between text-xs py-0.5">
+      <span className="text-[#E8F5E9] font-medium truncate max-w-[130px]">
         {prediction.participantName}
       </span>
-      <span className="font-bold text-[#E8F5E9] tabular-nums">
-        {prediction.predictedHomeScore} × {prediction.predictedAwayScore}
-      </span>
-      {prediction.pointsEarned !== null && (
-        <span className="text-brand-gold font-bold text-xs ml-2">
-          +{prediction.pointsEarned}
+      <div className="flex items-center gap-2 flex-none">
+        <span className="font-bold text-brand-gold tabular-nums">
+          {prediction.predictedHomeScore} × {prediction.predictedAwayScore}
         </span>
-      )}
+        {prediction.pointsEarned !== null && (
+          <span className="text-green-400 font-bold text-[10px] bg-green-400/10 rounded px-1">
+            +{prediction.pointsEarned}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-function HiddenPredictionRow({ participantName }: { participantName: string }) {
+function ParticipantStatusRow({
+  name,
+  done,
+}: {
+  name: string;
+  done: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-[#86B59A] truncate max-w-[100px]">
-        {participantName}
+    <div className="flex items-center gap-2 text-xs py-0.5">
+      <span className="text-base leading-none flex-none">
+        {done ? "✅" : "⏳"}
       </span>
-      <span className="text-[#1E4A32] font-bold tracking-widest">? × ?</span>
+      <span
+        className={`truncate ${
+          done ? "text-[#E8F5E9]" : "text-[#86B59A]"
+        }`}
+      >
+        {name}
+      </span>
     </div>
   );
 }
 
-export function MatchCard({
-  match,
-  predictions,
-  revealed,
-  order,
-  onPredicted,
-}: Props) {
+export function MatchCard({ match, visibility, onPredicted }: Props) {
   const { identity } = useIdentity();
   const [localPrediction, setLocalPrediction] = useState<{
     home: number;
     away: number;
   } | null>(null);
 
-  const serverPrediction = identity
-    ? myPredictionForMatch(predictions, match.id, identity.participantId)
+  const myServerPrediction = identity
+    ? visibility?.predictions.find(
+        (p) => p.participantId === identity.participantId
+      )
     : undefined;
 
-  const myPrediction = serverPrediction ?? (localPrediction ? {
-    id: -1,
-    participantId: identity?.participantId ?? 0,
-    participantName: identity?.participantName ?? "",
-    matchId: match.id,
-    predictedHomeScore: localPrediction.home,
-    predictedAwayScore: localPrediction.away,
-    createdAt: new Date().toISOString(),
-    pointsEarned: null,
-  } : undefined);
+  const myPrediction = myServerPrediction ?? (localPrediction
+    ? {
+        id: -1,
+        participantId: identity?.participantId ?? 0,
+        participantName: identity?.participantName ?? "",
+        matchId: match.id,
+        predictedHomeScore: localPrediction.home,
+        predictedAwayScore: localPrediction.away,
+        createdAt: new Date().toISOString(),
+        pointsEarned: null,
+      }
+    : undefined);
 
-  const matchPredictions = revealed
-    ? predictions.filter((p) => p.matchId === match.id)
-    : predictions;
+  const isRevealed = visibility?.isRevealed ?? false;
 
-  const currentTurn = order.find((o) => !o.hasSubmittedAll);
-  const isMyTurn =
-    !currentTurn || currentTurn.participantId === identity?.participantId;
+  const completedIds = new Set(
+    visibility?.completedParticipants.map((p) => p.participantId) ?? []
+  );
+
+  const allParticipants = [
+    ...(visibility?.completedParticipants ?? []),
+    ...(visibility?.pendingParticipants ?? []),
+  ];
 
   const canPredict =
-    match.status === "NotStarted" && !myPrediction && isMyTurn;
-
-  const showWaiting =
-    match.status === "NotStarted" && !myPrediction && !isMyTurn;
+    match.status === "NotStarted" &&
+    !myPrediction &&
+    (visibility?.pendingParticipants.some(
+      (p) => p.participantId === identity?.participantId
+    ) ??
+      false);
 
   const handlePredicted = useCallback(
     (home: number, away: number) => {
@@ -186,6 +200,8 @@ export function MatchCard({
     },
     [onPredicted]
   );
+
+  const showPredictionsSection = allParticipants.length > 0 || myPrediction;
 
   return (
     <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
@@ -212,43 +228,72 @@ export function MatchCard({
         />
       </div>
 
-      {(matchPredictions.length > 0 || revealed || myPrediction) && (
-        <div className="border-t border-[#1E4A32] px-4 py-3 flex flex-col gap-1.5">
-          <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest mb-1">
+      {showPredictionsSection && (
+        <div className="border-t border-[#1E4A32] px-4 py-3 flex flex-col gap-0.5">
+          <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest mb-1.5">
             Palpites
           </span>
-          {revealed ? (
-            matchPredictions.map((p) => (
-              <PredictionRow key={p.id} prediction={p} />
-            ))
-          ) : myPrediction ? (
-            <PredictionRow prediction={myPrediction} />
+
+          {isRevealed ? (
+            <>
+              {visibility?.predictions.map((p) => (
+                <RevealedPredictionRow key={p.id} prediction={p} />
+              ))}
+              {myPrediction && !myServerPrediction && (
+                <RevealedPredictionRow prediction={myPrediction} />
+              )}
+            </>
           ) : (
-            order.map((o) => (
-              <HiddenPredictionRow
-                key={o.participantId}
-                participantName={o.participantName}
-              />
-            ))
+            <>
+              {allParticipants.map((p) => {
+                const isMe = p.participantId === identity?.participantId;
+                const done = completedIds.has(p.participantId);
+
+                if (isMe && myPrediction) {
+                  return (
+                    <div
+                      key={p.participantId}
+                      className="flex items-center justify-between text-xs py-0.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">✅</span>
+                        <span className="text-brand-gold font-semibold">
+                          {p.participantName}
+                        </span>
+                      </div>
+                      <span className="font-bold text-brand-gold tabular-nums">
+                        {myPrediction.predictedHomeScore} ×{" "}
+                        {myPrediction.predictedAwayScore}
+                      </span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <ParticipantStatusRow
+                    key={p.participantId}
+                    name={p.participantName}
+                    done={done}
+                  />
+                );
+              })}
+
+              {myPrediction && allParticipants.length === 0 && (
+                <div className="flex items-center justify-between text-xs py-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">✅</span>
+                    <span className="text-brand-gold font-semibold">
+                      {myPrediction.participantName}
+                    </span>
+                  </div>
+                  <span className="font-bold text-brand-gold tabular-nums">
+                    {myPrediction.predictedHomeScore} ×{" "}
+                    {myPrediction.predictedAwayScore}
+                  </span>
+                </div>
+              )}
+            </>
           )}
-        </div>
-      )}
-
-      {match.status !== "NotStarted" && (
-        <div className="px-4 pb-3">
-          <span className="text-[#86B59A] text-xs">Palpites encerrados</span>
-        </div>
-      )}
-
-      {showWaiting && (
-        <div className="px-4 pb-3 border-t border-[#1E4A32] pt-3">
-          <p className="text-[#86B59A] text-xs">
-            Aguardando vez de{" "}
-            <span className="text-brand-gold font-semibold">
-              {currentTurn?.participantName}
-            </span>
-            …
-          </p>
         </div>
       )}
 
