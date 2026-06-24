@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WC26Pool.API.Data;
 using WC26Pool.API.DTOs;
 using WC26Pool.API.Models;
+using WC26Pool.API.Services;
 
 namespace WC26Pool.API.Endpoints;
 
@@ -11,17 +12,25 @@ public static class MatchEndpoints
     {
         var group = app.MapGroup("/api/matches");
 
-        group.MapGet("/today", async (AppDbContext db) =>
+        group.MapGet("/today", async (HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
         {
+            var participantId = ParseParticipantId(httpContext);
             var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+
             var matches = await db.Matches
                 .AsNoTracking()
                 .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == today)
                 .OrderBy(m => m.MatchDate)
-                .Select(m => MatchDto.FromMatch(m))
                 .ToListAsync();
 
-            return Results.Ok(matches);
+            var result = new List<MatchWithVisibilityDto>();
+            foreach (var match in matches)
+            {
+                var visibility = await visibilityService.GetVisibilityForMatchAsync(match.Id, match.Status, participantId);
+                result.Add(MatchWithVisibilityDto.FromMatch(match, visibility));
+            }
+
+            return Results.Ok(result);
         });
 
         group.MapGet("/upcoming", async (AppDbContext db) =>
@@ -38,15 +47,27 @@ public static class MatchEndpoints
             return Results.Ok(matches);
         });
 
-        group.MapGet("/{id:int}", async (int id, AppDbContext db) =>
+        group.MapGet("/{id:int}", async (int id, HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
         {
+            var participantId = ParseParticipantId(httpContext);
+
             var match = await db.Matches
                 .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            return match is null
-                ? Results.NotFound()
-                : Results.Ok(MatchDto.FromMatch(match));
+            if (match is null)
+                return Results.NotFound();
+
+            var visibility = await visibilityService.GetVisibilityForMatchAsync(match.Id, match.Status, participantId);
+            return Results.Ok(MatchWithVisibilityDto.FromMatch(match, visibility));
         });
+    }
+
+    private static int? ParseParticipantId(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue("X-Participant-Id", out var value) &&
+            int.TryParse(value, out var id))
+            return id;
+        return null;
     }
 }

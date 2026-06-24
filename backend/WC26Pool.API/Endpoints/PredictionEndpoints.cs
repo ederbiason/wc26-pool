@@ -14,10 +14,8 @@ public static class PredictionEndpoints
 
         group.MapPost("/", async (
             CreatePredictionRequest request,
-            HttpContext httpContext,
             AppDbContext db,
-            PredictionOrderService orderService,
-            PredictionVisibilityService visibilityService) =>
+            PredictionOrderService orderService) =>
         {
             var participantId = request.ParticipantId;
 
@@ -79,31 +77,29 @@ public static class PredictionEndpoints
 
         group.MapGet("/day/{date}", async (
             string date,
+            HttpContext httpContext,
             AppDbContext db,
             PredictionVisibilityService visibilityService) =>
         {
             if (!DateOnly.TryParse(date, out var parsedDate))
                 return Results.BadRequest("Invalid date format. Use yyyy-MM-dd");
 
-            var revealed = await visibilityService.ArePredictionsRevealedAsync(parsedDate);
+            var participantId = ParseParticipantId(httpContext);
 
             var matches = await db.Matches
                 .AsNoTracking()
                 .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == parsedDate)
-                .Select(m => m.Id)
+                .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
-            if (!revealed)
-                return Results.Ok(new { revealed = false, predictions = Array.Empty<object>() });
+            var result = new List<MatchWithVisibilityDto>();
+            foreach (var match in matches)
+            {
+                var visibility = await visibilityService.GetVisibilityForMatchAsync(match.Id, match.Status, participantId);
+                result.Add(MatchWithVisibilityDto.FromMatch(match, visibility));
+            }
 
-            var predictions = await db.Predictions
-                .AsNoTracking()
-                .Include(p => p.Participant)
-                .Where(p => matches.Contains(p.MatchId))
-                .Select(p => PredictionDto.FromPrediction(p))
-                .ToListAsync();
-
-            return Results.Ok(new { revealed = true, predictions });
+            return Results.Ok(result);
         });
 
         group.MapGet("/order/{date}", async (string date, AppDbContext db) =>
@@ -125,5 +121,13 @@ public static class PredictionEndpoints
 
             return Results.Ok(orders);
         });
+    }
+
+    private static int? ParseParticipantId(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue("X-Participant-Id", out var value) &&
+            int.TryParse(value, out var id))
+            return id;
+        return null;
     }
 }
