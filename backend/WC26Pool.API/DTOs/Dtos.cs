@@ -129,3 +129,5 @@ public record RankingEntryDto(
     string Name,
     int TotalPoints
 );
+
+public record UpcomingDayDto(string Date, IReadOnlyList<MatchDto> Matches);

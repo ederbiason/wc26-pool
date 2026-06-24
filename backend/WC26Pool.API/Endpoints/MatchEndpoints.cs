@@ -35,16 +35,26 @@ public static class MatchEndpoints
 
         group.MapGet("/upcoming", async (AppDbContext db) =>
         {
-            var now = DateTimeOffset.UtcNow;
+            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+            var from = today.AddDays(1);
+            var to = today.AddDays(7);
+
             var matches = await db.Matches
                 .AsNoTracking()
-                .Where(m => m.MatchDate > now && m.Status == MatchStatus.NotStarted)
+                .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) >= from &&
+                            DateOnly.FromDateTime(m.MatchDate.Date) <= to)
                 .OrderBy(m => m.MatchDate)
-                .Take(20)
-                .Select(m => MatchDto.FromMatch(m))
                 .ToListAsync();
 
-            return Results.Ok(matches);
+            var grouped = matches
+                .GroupBy(m => DateOnly.FromDateTime(m.MatchDate.Date))
+                .OrderBy(g => g.Key)
+                .Select(g => new UpcomingDayDto(
+                    g.Key.ToString("yyyy-MM-dd"),
+                    g.Select(MatchDto.FromMatch).ToList()))
+                .ToList();
+
+            return Results.Ok(grouped);
         });
 
         group.MapGet("/{id:int}", async (int id, HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
