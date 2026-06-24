@@ -19,12 +19,12 @@ function groupByDate(matches: Match[]): Record<string, Match[]> {
 function CalendarMatchCard({ match }: { match: Match }) {
   return (
     <div className="bg-brand-surface rounded-xl border border-[#1E4A32] px-4 py-3 flex items-center gap-4">
-      <div className="flex flex-col items-center w-12 flex-none">
+      <div className="flex items-center justify-center w-10 flex-none">
         {match.homeTeamFlag ? (
           <img
             src={match.homeTeamFlag}
             alt={match.homeTeam}
-            className="w-8 h-8 rounded-lg object-cover"
+            className="w-9 h-9 rounded-lg object-cover"
           />
         ) : (
           <span className="text-xl">🏳️</span>
@@ -40,12 +40,12 @@ function CalendarMatchCard({ match }: { match: Match }) {
         </span>
       </div>
 
-      <div className="flex flex-col items-center w-12 flex-none">
+      <div className="flex items-center justify-center w-10 flex-none">
         {match.awayTeamFlag ? (
           <img
             src={match.awayTeamFlag}
             alt={match.awayTeam}
-            className="w-8 h-8 rounded-lg object-cover"
+            className="w-9 h-9 rounded-lg object-cover"
           />
         ) : (
           <span className="text-xl">🏳️</span>
@@ -58,7 +58,8 @@ function CalendarMatchCard({ match }: { match: Match }) {
 export default function CalendarPage() {
   const { data: matches, isLoading, error } = useSWR(
     "matches-upcoming",
-    api.getMatchesUpcoming
+    api.getMatchesUpcoming,
+    { revalidateOnFocus: true }
   );
 
   const grouped = matches ? groupByDate(matches) : {};
@@ -100,7 +101,7 @@ export default function CalendarPage() {
 
         {dates.map((date) => (
           <section key={date} className="flex flex-col gap-2">
-            <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest px-1">
+            <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest px-1 first-letter:uppercase">
               {formatDateBrasilia(grouped[date][0].matchDate)}
             </h2>
             {grouped[date].map((m) => (
