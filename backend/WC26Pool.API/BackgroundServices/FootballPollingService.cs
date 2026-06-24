@@ -9,6 +9,8 @@ public class FootballPollingService(
     IServiceProvider services,
     ILogger<FootballPollingService> logger) : BackgroundService
 {
+    private DateOnly _lastUpcomingSync = DateOnly.MinValue;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -31,25 +33,27 @@ public class FootballPollingService(
 
         try
         {
+            await SyncUpcomingMatchesIfNeededAsync(db, footballApi, today, cancellationToken);
+
             var apiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
 
-            if (apiMatches.Count == 0)
-                return TimeUntilMidnight(nowUtc);
-
-            await SyncMatchesAsync(db, apiMatches, scoringService, cancellationToken);
-            await orderService.GenerateOrderForDateAsync(today);
+            if (apiMatches.Count > 0)
+            {
+                await SyncMatchesAsync(db, apiMatches, scoringService, cancellationToken);
+                await orderService.GenerateOrderForDateAsync(today);
+            }
 
             var dbMatches = await db.Matches
                 .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == today)
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync(cancellationToken);
 
-            if (dbMatches.All(m => m.Status == MatchStatus.Finished))
+            if (dbMatches.Count == 0 || dbMatches.All(m => m.Status == MatchStatus.Finished))
                 return TimeUntilMidnight(nowUtc);
 
             var inProgress = dbMatches.Any(m => m.Status == MatchStatus.InProgress);
             if (inProgress)
-                return TimeSpan.FromMinutes(5);
+                return TimeSpan.FromMinutes(1);
 
             var nextMatch = dbMatches
                 .Where(m => m.Status == MatchStatus.NotStarted)
@@ -61,25 +65,51 @@ public class FootballPollingService(
 
             var minutesUntilNext = (nextMatch.MatchDate - nowUtc).TotalMinutes;
 
+            if (minutesUntilNext < 10)
+                return TimeSpan.FromSeconds(30);
+
             if (minutesUntilNext < 30)
-                return TimeSpan.FromMinutes(10);
+                return TimeSpan.FromMinutes(2);
 
             if (minutesUntilNext < 120)
-                return TimeSpan.FromMinutes(30);
+                return TimeSpan.FromMinutes(10);
 
-            return TimeSpan.FromMinutes(30);
+            return TimeSpan.FromMinutes(20);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error in FootballPollingService, backing off for 5 minutes");
-            return TimeSpan.FromMinutes(5);
+            logger.LogError(ex, "Error in FootballPollingService, backing off for 2 minutes");
+            return TimeSpan.FromMinutes(2);
         }
+    }
+
+    private async Task SyncUpcomingMatchesIfNeededAsync(
+        AppDbContext db,
+        FootballApiService footballApi,
+        DateOnly today,
+        CancellationToken cancellationToken)
+    {
+        if (_lastUpcomingSync == today)
+            return;
+
+        logger.LogInformation("Syncing upcoming matches for next 7 days starting {Today}", today);
+
+        var from = today.AddDays(1);
+        var to = today.AddDays(7);
+
+        var apiMatches = await footballApi.GetMatchesForRangeAsync(from, to, cancellationToken);
+
+        if (apiMatches.Count > 0)
+            await SyncMatchesAsync(db, apiMatches, scoringService: null, cancellationToken);
+
+        _lastUpcomingSync = today;
+        logger.LogInformation("Upcoming sync complete — {Count} matches fetched for next 7 days", apiMatches.Count);
     }
 
     private async Task SyncMatchesAsync(
         AppDbContext db,
-        List<Services.FootballApiMatch> apiMatches,
-        ScoringService scoringService,
+        List<FootballApiMatch> apiMatches,
+        ScoringService? scoringService,
         CancellationToken cancellationToken)
     {
         foreach (var apiMatch in apiMatches)
@@ -109,11 +139,19 @@ public class FootballPollingService(
             else
             {
                 var previousStatus = existing.Status;
+
+                if (previousStatus != newStatus)
+                {
+                    logger.LogWarning(
+                        "Match {ExternalId} ({Home} vs {Away}) status transition: {Previous} → {New}",
+                        externalId, existing.HomeTeam, existing.AwayTeam, previousStatus, newStatus);
+                }
+
                 existing.Status = newStatus;
                 existing.HomeScore = apiMatch.Score?.FullTime?.Home;
                 existing.AwayScore = apiMatch.Score?.FullTime?.Away;
 
-                if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished)
+                if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished && scoringService is not null)
                 {
                     await db.SaveChangesAsync(cancellationToken);
                     await scoringService.CalculatePointsForMatchAsync(existing.Id);
