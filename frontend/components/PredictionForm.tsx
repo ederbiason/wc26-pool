@@ -7,7 +7,7 @@ import { useIdentity } from "@/components/IdentityProvider";
 
 interface Props {
   matchId: number;
-  onSuccess: () => void;
+  onSuccess: (home: number, away: number) => void;
 }
 
 export function PredictionForm({ matchId, onSuccess }: Props) {
@@ -34,7 +34,7 @@ export function PredictionForm({ matchId, onSuccess }: Props) {
         predictedAwayScore: a,
       });
       toast.success("Palpite enviado!");
-      onSuccess();
+      onSuccess(h, a);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao enviar palpite.";
       toast.error(msg);

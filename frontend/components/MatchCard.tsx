@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { Match, Prediction, DayPredictionOrder } from "@/types";
 import { useIdentity } from "@/components/IdentityProvider";
 import { PredictionForm } from "@/components/PredictionForm";
@@ -145,10 +145,29 @@ export function MatchCard({
   onPredicted,
 }: Props) {
   const { identity } = useIdentity();
+  const [localPrediction, setLocalPrediction] = useState<{
+    home: number;
+    away: number;
+  } | null>(null);
 
-  const myPrediction = identity
+  const serverPrediction = identity
     ? myPredictionForMatch(predictions, match.id, identity.participantId)
     : undefined;
+
+  const myPrediction = serverPrediction ?? (localPrediction ? {
+    id: -1,
+    participantId: identity?.participantId ?? 0,
+    participantName: identity?.participantName ?? "",
+    matchId: match.id,
+    predictedHomeScore: localPrediction.home,
+    predictedAwayScore: localPrediction.away,
+    createdAt: new Date().toISOString(),
+    pointsEarned: null,
+  } : undefined);
+
+  const matchPredictions = revealed
+    ? predictions.filter((p) => p.matchId === match.id)
+    : predictions;
 
   const currentTurn = order.find((o) => !o.hasSubmittedAll);
   const isMyTurn =
@@ -160,9 +179,13 @@ export function MatchCard({
   const showWaiting =
     match.status === "NotStarted" && !myPrediction && !isMyTurn;
 
-  const handlePredicted = useCallback(() => {
-    onPredicted();
-  }, [onPredicted]);
+  const handlePredicted = useCallback(
+    (home: number, away: number) => {
+      setLocalPrediction({ home, away });
+      onPredicted();
+    },
+    [onPredicted]
+  );
 
   return (
     <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
@@ -189,13 +212,13 @@ export function MatchCard({
         />
       </div>
 
-      {(predictions.length > 0 || revealed || myPrediction) && (
+      {(matchPredictions.length > 0 || revealed || myPrediction) && (
         <div className="border-t border-[#1E4A32] px-4 py-3 flex flex-col gap-1.5">
           <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest mb-1">
             Palpites
           </span>
           {revealed ? (
-            predictions.map((p) => (
+            matchPredictions.map((p) => (
               <PredictionRow key={p.id} prediction={p} />
             ))
           ) : myPrediction ? (
