@@ -19,16 +19,16 @@ public static class PredictionEndpoints
         {
             var participantId = request.ParticipantId;
 
-            var participant = await db.Participants.FindAsync(participantId);
-            if (participant is null)
-                return Results.NotFound("Participant not found");
-
             var match = await db.Matches.FindAsync(request.MatchId);
             if (match is null)
                 return Results.NotFound("Match not found");
 
             if (match.Status != MatchStatus.NotStarted)
-                return Results.UnprocessableEntity("Cannot predict on a match that has already started or finished");
+                return Results.UnprocessableEntity($"This match has already {match.Status.ToString().ToLower()} — predictions are closed");
+
+            var participant = await db.Participants.FindAsync(participantId);
+            if (participant is null)
+                return Results.NotFound("Participant not found");
 
             var existingPrediction = await db.Predictions
                 .FirstOrDefaultAsync(p => p.ParticipantId == participantId && p.MatchId == request.MatchId);
