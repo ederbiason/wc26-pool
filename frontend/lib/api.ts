@@ -8,7 +8,7 @@ import type {
   RankingEntry,
 } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5040";
 
 function buildHeaders(): HeadersInit {
   const identity = getIdentity();
