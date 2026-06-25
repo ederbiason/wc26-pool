@@ -36,16 +36,24 @@ public static class PredictionEndpoints
             if (existingPrediction is not null)
                 return Results.Conflict("Prediction already exists for this match");
 
-            var matchDate = DateOnly.FromDateTime(match.MatchDate.Date);
+            // Use Brasília date so 23h games are grouped with the correct local day
+            var matchDay = PredictionOrderService.GetBrasiliaDate(match.MatchDate);
 
             var orderExists = await db.DayPredictionOrders
-                .AnyAsync(d => d.Date == matchDate);
+                .AnyAsync(d => d.Date == matchDay);
 
             if (!orderExists)
-                await orderService.GenerateOrderForDateAsync(matchDate);
+                await orderService.GenerateOrderForDateAsync(matchDay);
+
+            // Find the earliest match of this Brasília day (UTC boundaries)
+            var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+            var dayStartLocal = new DateTime(matchDay.Year, matchDay.Month, matchDay.Day,
+                                             0, 0, 0, DateTimeKind.Unspecified);
+            var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal, brasiliaZone);
+            var dayEndUtc   = dayStartUtc.AddDays(1);
 
             var firstMatchOfDay = await db.Matches
-                .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == matchDate)
+                .Where(m => m.MatchDate.UtcDateTime >= dayStartUtc && m.MatchDate.UtcDateTime < dayEndUtc)
                 .OrderBy(m => m.MatchDate)
                 .FirstOrDefaultAsync();
 
@@ -53,7 +61,7 @@ public static class PredictionEndpoints
                 return Results.UnprocessableEntity("No matches found for this day");
 
             var canPredict = await orderService.CanParticipantPredictAsync(
-                participantId, matchDate, firstMatchOfDay.MatchDate);
+                participantId, matchDay, firstMatchOfDay.MatchDate);
 
             if (!canPredict)
                 return Results.UnprocessableEntity("You are not allowed to predict yet based on the current order");
@@ -70,7 +78,7 @@ public static class PredictionEndpoints
             db.Predictions.Add(prediction);
             await db.SaveChangesAsync();
 
-            await orderService.UpdateSubmissionStatusAsync(participantId, matchDate);
+            await orderService.UpdateSubmissionStatusAsync(participantId, matchDay);
 
             return Results.Created($"/api/predictions/{prediction.Id}", new { prediction.Id });
         });
