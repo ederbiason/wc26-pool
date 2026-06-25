@@ -36,18 +36,19 @@ public static class MatchEndpoints
         group.MapGet("/upcoming", async (AppDbContext db) =>
         {
             var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-            var from = today.AddDays(1);
-            var to = today.AddDays(7);
+
+            // Use DateTimeOffset boundaries for EF Core / Npgsql compatibility
+            var fromUtc = new DateTimeOffset(today.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            var toUtc = new DateTimeOffset(today.AddDays(8).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero); // exclusive upper bound
 
             var matches = await db.Matches
                 .AsNoTracking()
-                .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) >= from &&
-                            DateOnly.FromDateTime(m.MatchDate.Date) <= to)
+                .Where(m => m.MatchDate >= fromUtc && m.MatchDate < toUtc)
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
             var grouped = matches
-                .GroupBy(m => DateOnly.FromDateTime(m.MatchDate.Date))
+                .GroupBy(m => DateOnly.FromDateTime(m.MatchDate.UtcDateTime.Date))
                 .OrderBy(g => g.Key)
                 .Select(g => new UpcomingDayDto(
                     g.Key.ToString("yyyy-MM-dd"),
