@@ -6,6 +6,33 @@ using WC26Pool.API.Services;
 
 namespace WC26Pool.API.Endpoints;
 
+internal static class BrasiliaTime
+{
+    private static readonly TimeZoneInfo Zone =
+        TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
+    /// Returns (startUtc, endUtc) for the current day in Brasília time.
+    public static (DateTime startUtc, DateTime endUtc) TodayUtcBounds()
+    {
+        var nowBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone);
+        var startLocal = new DateTime(nowBrasilia.Year, nowBrasilia.Month, nowBrasilia.Day,
+                                      0, 0, 0, DateTimeKind.Unspecified);
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, Zone);
+        return (startUtc, startUtc.AddDays(1));
+    }
+
+    /// Returns the UTC boundaries for the window [today+daysFrom, today+daysTo) in Brasília.
+    public static (DateTime startUtc, DateTime endUtc) OffsetUtcBounds(int daysFrom, int daysTo)
+    {
+        var nowBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone);
+        var baseLocal = new DateTime(nowBrasilia.Year, nowBrasilia.Month, nowBrasilia.Day,
+                                     0, 0, 0, DateTimeKind.Unspecified);
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(baseLocal.AddDays(daysFrom), Zone);
+        var endUtc   = TimeZoneInfo.ConvertTimeToUtc(baseLocal.AddDays(daysTo),   Zone);
+        return (startUtc, endUtc);
+    }
+}
+
 public static class MatchEndpoints
 {
     public static void MapMatchEndpoints(this WebApplication app)
@@ -15,11 +42,11 @@ public static class MatchEndpoints
         group.MapGet("/today", async (HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
         {
             var participantId = ParseParticipantId(httpContext);
-            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+            var (startUtc, endUtc) = BrasiliaTime.TodayUtcBounds();
 
             var matches = await db.Matches
                 .AsNoTracking()
-                .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == today)
+                .Where(m => m.MatchDate >= startUtc && m.MatchDate < endUtc)
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
@@ -35,11 +62,8 @@ public static class MatchEndpoints
 
         group.MapGet("/upcoming", async (AppDbContext db) =>
         {
-            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-
-            // Use DateTimeOffset boundaries for EF Core / Npgsql compatibility
-            var fromUtc = new DateTimeOffset(today.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-            var toUtc = new DateTimeOffset(today.AddDays(8).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero); // exclusive upper bound
+            // "Tomorrow" through "D+7" in Brasília timezone
+            var (fromUtc, toUtc) = BrasiliaTime.OffsetUtcBounds(daysFrom: 1, daysTo: 8);
 
             var matches = await db.Matches
                 .AsNoTracking()
@@ -47,8 +71,10 @@ public static class MatchEndpoints
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
+            var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
             var grouped = matches
-                .GroupBy(m => DateOnly.FromDateTime(m.MatchDate.UtcDateTime.Date))
+                .GroupBy(m => DateOnly.FromDateTime(
+                    TimeZoneInfo.ConvertTimeFromUtc(m.MatchDate.UtcDateTime, brasiliaZone).Date))
                 .OrderBy(g => g.Key)
                 .Select(g => new UpcomingDayDto(
                     g.Key.ToString("yyyy-MM-dd"),
