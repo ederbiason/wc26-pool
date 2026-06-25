@@ -2,8 +2,8 @@ import { getIdentity } from "@/lib/storage";
 import type {
   Match,
   MatchWithVisibility,
+  UpcomingDay,
   Participant,
-  DayPredictionOrder,
   RankingEntry,
 } from "@/types";
 
@@ -45,15 +45,12 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   getParticipants: () => get<Participant[]>("/api/participants"),
 
-  getMatchesToday: () => get<Match[]>("/api/matches/today"),
+  getMatchesToday: () => get<MatchWithVisibility[]>("/api/matches/today"),
 
-  getMatchesUpcoming: () => get<Match[]>("/api/matches/upcoming"),
+  getMatchesUpcoming: () => get<UpcomingDay[]>("/api/matches/upcoming"),
 
   getPredictionsForDay: (date: string) =>
     get<MatchWithVisibility[]>(`/api/predictions/day/${date}`),
-
-  getPredictionOrder: (date: string) =>
-    get<DayPredictionOrder[]>(`/api/predictions/order/${date}`),
 
   submitPrediction: (payload: {
     participantId: number;

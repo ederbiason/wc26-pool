@@ -62,6 +62,11 @@ export interface RankingEntry {
   totalPoints: number;
 }
 
+export interface UpcomingDay {
+  date: string;
+  matches: Match[];
+}
+
 export interface StoredIdentity {
   participantId: number;
   participantName: string;
