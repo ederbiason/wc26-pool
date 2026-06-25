@@ -2,19 +2,8 @@
 
 import useSWR from "swr";
 import { api, formatTimeBrasilia, formatDateBrasilia } from "@/lib/api";
-import type { Match } from "@/types";
+import type { Match, UpcomingDay } from "@/types";
 import { MatchCardSkeleton } from "@/components/MatchCardSkeleton";
-
-function groupByDate(matches: Match[]): Record<string, Match[]> {
-  return matches.reduce<Record<string, Match[]>>((acc, m) => {
-    const key = new Date(m.matchDate).toLocaleDateString("sv-SE", {
-      timeZone: "America/Sao_Paulo",
-    });
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(m);
-    return acc;
-  }, {});
-}
 
 function CalendarMatchCard({ match }: { match: Match }) {
   return (
@@ -31,8 +20,8 @@ function CalendarMatchCard({ match }: { match: Match }) {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col gap-0.5">
-        <span className="text-[#E8F5E9] text-sm font-semibold">
+      <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+        <span className="text-[#E8F5E9] text-sm font-semibold truncate">
           {match.homeTeam} × {match.awayTeam}
         </span>
         <span className="text-[#86B59A] text-xs">
@@ -56,14 +45,13 @@ function CalendarMatchCard({ match }: { match: Match }) {
 }
 
 export default function CalendarPage() {
-  const { data: matches, isLoading, error } = useSWR(
+  const { data: days, isLoading, error } = useSWR(
     "matches-upcoming",
     api.getMatchesUpcoming,
     { revalidateOnFocus: true }
   );
 
-  const grouped = matches ? groupByDate(matches) : {};
-  const dates = Object.keys(grouped).sort();
+  const isEmpty = !isLoading && !error && (!days || days.length === 0);
 
   return (
     <div className="flex flex-col flex-1">
@@ -90,7 +78,7 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {!isLoading && !error && matches?.length === 0 && (
+        {isEmpty && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <span className="text-5xl">📅</span>
             <p className="text-[#86B59A] text-sm text-center">
@@ -99,12 +87,12 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {dates.map((date) => (
-          <section key={date} className="flex flex-col gap-2">
+        {days?.map((day: UpcomingDay) => (
+          <section key={day.date} className="flex flex-col gap-2">
             <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest px-1 first-letter:uppercase">
-              {formatDateBrasilia(grouped[date][0].matchDate)}
+              {formatDateBrasilia(`${day.date}T12:00:00`)}
             </h2>
-            {grouped[date].map((m) => (
+            {day.matches.map((m) => (
               <CalendarMatchCard key={m.id} match={m} />
             ))}
           </section>
