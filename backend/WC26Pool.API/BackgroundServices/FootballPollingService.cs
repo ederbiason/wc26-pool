@@ -62,14 +62,38 @@ public class FootballPollingService(
         var scoringService = scope.ServiceProvider.GetRequiredService<ScoringService>();
         var orderService = scope.ServiceProvider.GetRequiredService<PredictionOrderService>();
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var nowUtc = DateTimeOffset.UtcNow;
+        var nowUtc = DateTime.UtcNow;
+        var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        var nowBrasilia = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, brasiliaZone);
+        var todayStartLocal = new DateTime(nowBrasilia.Year, nowBrasilia.Month, nowBrasilia.Day,
+                                           0, 0, 0, DateTimeKind.Unspecified);
+        var todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayStartLocal, brasiliaZone);
+        var todayEndUtc   = todayStartUtc.AddDays(1);
+        var today = DateOnly.FromDateTime(nowBrasilia.Date);
 
         try
         {
-            // Re-sync upcoming at midnight
+            // Re-sync upcoming at midnight (Brasília)
             if (_lastUpcomingSync != today)
                 await SyncUpcomingMatchesAsync(cancellationToken);
+
+            // --- Overdue check: NotStarted match whose kickoff time has already passed ---
+            var overdueMatches = await db.Matches
+                .Where(m => m.Status == MatchStatus.NotStarted && m.MatchDate.UtcDateTime <= nowUtc)
+                .ToListAsync(cancellationToken);
+
+            if (overdueMatches.Count > 0)
+            {
+                logger.LogWarning(
+                    "{Count} overdue match(es) detected (NotStarted but kickoff passed). Fetching today immediately.",
+                    overdueMatches.Count);
+
+                // Fetch today's full data to resolve overdue statuses
+                var overdueApiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
+                if (overdueApiMatches.Count > 0)
+                    await SyncMatchesAsync(db, overdueApiMatches, scoringService, cancellationToken);
+            }
+            // --------------------------------------------------------------------------
 
             var apiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
 
@@ -79,11 +103,8 @@ public class FootballPollingService(
                 await orderService.GenerateOrderForDateAsync(today);
             }
 
-            var todayStart = new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-            var todayEnd = todayStart.AddDays(1);
-
             var dbMatches = await db.Matches
-                .Where(m => m.MatchDate >= todayStart && m.MatchDate < todayEnd)
+                .Where(m => m.MatchDate.UtcDateTime >= todayStartUtc && m.MatchDate.UtcDateTime < todayEndUtc)
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync(cancellationToken);
 
@@ -101,7 +122,7 @@ public class FootballPollingService(
             if (nextMatch is null)
                 return TimeUntilMidnight(nowUtc);
 
-            var minutesUntilNext = (nextMatch.MatchDate - nowUtc).TotalMinutes;
+            var minutesUntilNext = (nextMatch.MatchDate.UtcDateTime - nowUtc).TotalMinutes;
 
             return minutesUntilNext switch
             {
