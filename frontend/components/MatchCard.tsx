@@ -107,11 +107,11 @@ function ScoreDisplay({ match }: { match: Match }) {
 
 function RevealedPredictionRow({ prediction }: { prediction: Prediction }) {
   return (
-    <div className="flex items-center justify-between text-xs py-0.5">
-      <span className="text-[#E8F5E9] font-medium truncate max-w-[130px]">
+    <div className="flex flex-col text-xs py-0.5 min-w-0 gap-0.5">
+      <span className="text-[#E8F5E9] font-medium truncate">
         {prediction.participantName}
       </span>
-      <div className="flex items-center gap-2 flex-none">
+      <div className="flex items-center gap-1.5">
         <span className="font-bold text-brand-gold tabular-nums">
           {prediction.predictedHomeScore} × {prediction.predictedAwayScore}
         </span>
@@ -201,7 +201,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
     [onPredicted]
   );
 
-  const showPredictionsSection = allParticipants.length > 0 || myPrediction;
+  const showPredictionsSection = true;
 
   return (
     <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
@@ -236,60 +236,70 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
 
           {isRevealed ? (
             <>
-              {visibility?.predictions.map((p) => (
-                <RevealedPredictionRow key={p.id} prediction={p} />
-              ))}
-              {myPrediction && !myServerPrediction && (
-                <RevealedPredictionRow prediction={myPrediction} />
+              {visibility?.predictions.length === 0 && !myPrediction ? (
+                <p className="text-[#86B59A] text-xs italic">
+                  Nenhum palpite foi feito ainda.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                  {visibility?.predictions.map((p) => (
+                    <RevealedPredictionRow key={p.id} prediction={p} />
+                  ))}
+                  {myPrediction && !myServerPrediction && (
+                    <RevealedPredictionRow prediction={myPrediction} />
+                  )}
+                </div>
               )}
             </>
           ) : (
             <>
-              {allParticipants.map((p) => {
-                const isMe = p.participantId === identity?.participantId;
-                const done = completedIds.has(p.participantId);
+              {allParticipants.length === 0 && !myPrediction ? (
+                <p className="text-[#86B59A] text-xs italic">
+                  Nenhum palpite foi feito ainda.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                  {allParticipants.map((p) => {
+                    const isMe = p.participantId === identity?.participantId;
+                    const done = completedIds.has(p.participantId);
 
-                if (isMe && myPrediction) {
-                  return (
-                    <div
-                      key={p.participantId}
-                      className="flex items-center justify-between text-xs py-0.5"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base leading-none">✅</span>
-                        <span className="text-brand-gold font-semibold">
-                          {p.participantName}
-                        </span>
-                      </div>
-                      <span className="font-bold text-brand-gold tabular-nums">
-                        {myPrediction.predictedHomeScore} ×{" "}
-                        {myPrediction.predictedAwayScore}
+                    if (isMe && myPrediction) {
+                      return (
+                        <div
+                          key={p.participantId}
+                          className="flex items-center gap-1.5 text-xs py-0.5 min-w-0"
+                        >
+                          <span className="text-sm leading-none flex-none">✅</span>
+                          <span className="text-brand-gold font-semibold truncate">
+                            {p.participantName}
+                          </span>
+                          <span className="font-bold text-brand-gold tabular-nums flex-none ml-auto">
+                            {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <ParticipantStatusRow
+                        key={p.participantId}
+                        name={p.participantName}
+                        done={done}
+                      />
+                    );
+                  })}
+
+                  {myPrediction && allParticipants.length === 0 && (
+                    <div className="flex items-center gap-1.5 text-xs py-0.5 min-w-0">
+                      <span className="text-sm leading-none flex-none">✅</span>
+                      <span className="text-brand-gold font-semibold truncate">
+                        {myPrediction.participantName}
+                      </span>
+                      <span className="font-bold text-brand-gold tabular-nums flex-none ml-auto">
+                        {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
                       </span>
                     </div>
-                  );
-                }
-
-                return (
-                  <ParticipantStatusRow
-                    key={p.participantId}
-                    name={p.participantName}
-                    done={done}
-                  />
-                );
-              })}
-
-              {myPrediction && allParticipants.length === 0 && (
-                <div className="flex items-center justify-between text-xs py-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">✅</span>
-                    <span className="text-brand-gold font-semibold">
-                      {myPrediction.participantName}
-                    </span>
-                  </div>
-                  <span className="font-bold text-brand-gold tabular-nums">
-                    {myPrediction.predictedHomeScore} ×{" "}
-                    {myPrediction.predictedAwayScore}
-                  </span>
+                  )}
                 </div>
               )}
             </>
