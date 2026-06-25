@@ -16,10 +16,33 @@ public class FootballPollingService(
         // Sync next 7 days immediately on startup
         await SyncUpcomingMatchesAsync(stoppingToken);
 
+        // Force-regenerate today's prediction order to fix any stale UTC-based grouping
+        await RegenerateTodayOrderAsync(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var delay = await ProcessTodayAsync(stoppingToken);
             await Task.Delay(delay, stoppingToken);
+        }
+    }
+
+    private async Task RegenerateTodayOrderAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = services.CreateScope();
+            var orderService = scope.ServiceProvider.GetRequiredService<PredictionOrderService>();
+
+            var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+            var today = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, brasiliaZone).Date);
+
+            logger.LogInformation("Regenerating prediction order for today ({Today}) on startup", today);
+            await orderService.GenerateOrderForDateAsync(today, forceRegenerate: true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to regenerate today's prediction order on startup");
         }
     }
 
