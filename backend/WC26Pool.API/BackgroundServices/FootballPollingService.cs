@@ -13,11 +13,8 @@ public class FootballPollingService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // On startup: immediately sync the next 7 days before entering the loop
-        await RunScopedAsync(async (db, footballApi, scoringService, orderService) =>
-        {
-            await SyncUpcomingIfNeededAsync(db, footballApi, stoppingToken);
-        }, stoppingToken);
+        // Sync next 7 days immediately on startup
+        await SyncUpcomingMatchesAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -26,74 +23,20 @@ public class FootballPollingService(
         }
     }
 
-    // Handles today's live score updates + scheduling the daily upcoming sync at midnight
-    private async Task<TimeSpan> ProcessTodayAsync(CancellationToken cancellationToken)
-    {
-        return await RunScopedAsync<TimeSpan>(async (db, footballApi, scoringService, orderService) =>
-        {
-            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-            var nowUtc = DateTimeOffset.UtcNow;
-
-            try
-            {
-                // Daily midnight sync of upcoming 7 days
-                await SyncUpcomingIfNeededAsync(db, footballApi, cancellationToken);
-
-                // Today's live data refresh
-                var apiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
-
-                if (apiMatches.Count > 0)
-                {
-                    await SyncMatchesAsync(db, apiMatches, scoringService, cancellationToken);
-                    await orderService.GenerateOrderForDateAsync(today);
-                }
-
-                var dbMatches = await db.Matches
-                    .Where(m => m.MatchDate.Date == today.ToDateTime(TimeOnly.MinValue))
-                    .OrderBy(m => m.MatchDate)
-                    .ToListAsync(cancellationToken);
-
-                if (dbMatches.Count == 0 || dbMatches.All(m => m.Status == MatchStatus.Finished))
-                    return TimeUntilMidnight(nowUtc);
-
-                if (dbMatches.Any(m => m.Status == MatchStatus.InProgress))
-                    return TimeSpan.FromMinutes(1);
-
-                var nextMatch = dbMatches
-                    .Where(m => m.Status == MatchStatus.NotStarted)
-                    .OrderBy(m => m.MatchDate)
-                    .FirstOrDefault();
-
-                if (nextMatch is null)
-                    return TimeUntilMidnight(nowUtc);
-
-                var minutesUntilNext = (nextMatch.MatchDate - nowUtc).TotalMinutes;
-
-                return minutesUntilNext switch
-                {
-                    < 10 => TimeSpan.FromSeconds(30),
-                    < 30 => TimeSpan.FromMinutes(2),
-                    < 120 => TimeSpan.FromMinutes(10),
-                    _ => TimeSpan.FromMinutes(20)
-                };
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error in FootballPollingService, backing off for 2 minutes");
-                return TimeSpan.FromMinutes(2);
-            }
-        }, cancellationToken);
-    }
-
-    private async Task SyncUpcomingIfNeededAsync(
-        AppDbContext db,
-        FootballApiService footballApi,
-        CancellationToken cancellationToken)
+    // Public so the admin endpoint can trigger it manually
+    public async Task SyncUpcomingMatchesAsync(CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
 
         if (_lastUpcomingSync == today)
+        {
+            logger.LogInformation("Upcoming sync already done today, skipping");
             return;
+        }
+
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var footballApi = scope.ServiceProvider.GetRequiredService<FootballApiService>();
 
         var from = today.AddDays(1);
         var to = today.AddDays(7);
@@ -102,11 +45,77 @@ public class FootballPollingService(
 
         var apiMatches = await footballApi.GetMatchesForRangeAsync(from, to, cancellationToken);
 
+        logger.LogInformation("API returned {Count} upcoming matches", apiMatches.Count);
+
         if (apiMatches.Count > 0)
             await SyncMatchesAsync(db, apiMatches, scoringService: null, cancellationToken);
 
         _lastUpcomingSync = today;
-        logger.LogInformation("Upcoming sync complete — {Count} matches persisted for next 7 days", apiMatches.Count);
+        logger.LogInformation("Upcoming sync complete — {Count} matches from {From} to {To}", apiMatches.Count, from, to);
+    }
+
+    private async Task<TimeSpan> ProcessTodayAsync(CancellationToken cancellationToken)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var footballApi = scope.ServiceProvider.GetRequiredService<FootballApiService>();
+        var scoringService = scope.ServiceProvider.GetRequiredService<ScoringService>();
+        var orderService = scope.ServiceProvider.GetRequiredService<PredictionOrderService>();
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        try
+        {
+            // Re-sync upcoming at midnight
+            if (_lastUpcomingSync != today)
+                await SyncUpcomingMatchesAsync(cancellationToken);
+
+            var apiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
+
+            if (apiMatches.Count > 0)
+            {
+                await SyncMatchesAsync(db, apiMatches, scoringService, cancellationToken);
+                await orderService.GenerateOrderForDateAsync(today);
+            }
+
+            var todayStart = new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            var todayEnd = todayStart.AddDays(1);
+
+            var dbMatches = await db.Matches
+                .Where(m => m.MatchDate >= todayStart && m.MatchDate < todayEnd)
+                .OrderBy(m => m.MatchDate)
+                .ToListAsync(cancellationToken);
+
+            if (dbMatches.Count == 0 || dbMatches.All(m => m.Status == MatchStatus.Finished))
+                return TimeUntilMidnight(nowUtc);
+
+            if (dbMatches.Any(m => m.Status == MatchStatus.InProgress))
+                return TimeSpan.FromMinutes(1);
+
+            var nextMatch = dbMatches
+                .Where(m => m.Status == MatchStatus.NotStarted)
+                .OrderBy(m => m.MatchDate)
+                .FirstOrDefault();
+
+            if (nextMatch is null)
+                return TimeUntilMidnight(nowUtc);
+
+            var minutesUntilNext = (nextMatch.MatchDate - nowUtc).TotalMinutes;
+
+            return minutesUntilNext switch
+            {
+                < 10 => TimeSpan.FromSeconds(30),
+                < 30 => TimeSpan.FromMinutes(2),
+                < 120 => TimeSpan.FromMinutes(10),
+                _ => TimeSpan.FromMinutes(20)
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in FootballPollingService, backing off 2 minutes");
+            return TimeSpan.FromMinutes(2);
+        }
     }
 
     private async Task SyncMatchesAsync(
@@ -154,7 +163,7 @@ public class FootballPollingService(
                 existing.HomeScore = apiMatch.Score?.FullTime?.Home;
                 existing.AwayScore = apiMatch.Score?.FullTime?.Away;
 
-                // Update team names in case they were "A definir" and now the API has real names
+                // Update team names when API resolves previously unknown teams
                 if (existing.HomeTeam == "A definir" && apiMatch.HomeTeam?.Name is { } homeName)
                     existing.HomeTeam = homeName;
                 if (existing.AwayTeam == "A definir" && apiMatch.AwayTeam?.Name is { } awayName)
@@ -174,31 +183,6 @@ public class FootballPollingService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
-    }
-
-    // Helper to create a scoped DI context, resolve services and run an async action
-    private async Task RunScopedAsync(
-        Func<AppDbContext, FootballApiService, ScoringService, PredictionOrderService, Task> action,
-        CancellationToken cancellationToken)
-    {
-        using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var footballApi = scope.ServiceProvider.GetRequiredService<FootballApiService>();
-        var scoringService = scope.ServiceProvider.GetRequiredService<ScoringService>();
-        var orderService = scope.ServiceProvider.GetRequiredService<PredictionOrderService>();
-        await action(db, footballApi, scoringService, orderService);
-    }
-
-    private async Task<T> RunScopedAsync<T>(
-        Func<AppDbContext, FootballApiService, ScoringService, PredictionOrderService, Task<T>> action,
-        CancellationToken cancellationToken)
-    {
-        using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var footballApi = scope.ServiceProvider.GetRequiredService<FootballApiService>();
-        var scoringService = scope.ServiceProvider.GetRequiredService<ScoringService>();
-        var orderService = scope.ServiceProvider.GetRequiredService<PredictionOrderService>();
-        return await action(db, footballApi, scoringService, orderService);
     }
 
     private static TimeSpan TimeUntilMidnight(DateTimeOffset now)

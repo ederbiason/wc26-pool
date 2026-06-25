@@ -18,7 +18,8 @@ builder.Services.AddScoped<PredictionVisibilityService>();
 builder.Services.AddScoped<FootballApiService>();
 builder.Services.AddHttpClient<FootballApiService>();
 
-builder.Services.AddHostedService<FootballPollingService>();
+builder.Services.AddSingleton<FootballPollingService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FootballPollingService>());
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:3000"];

@@ -53,9 +53,9 @@ public record FootballApiMatch(
 );
 
 public record FootballApiTeam(
-    int Id,
-    string Name,
-    string Crest
+    int? Id,
+    string? Name,
+    string? Crest
 );
 
 public record FootballApiScore(
