@@ -8,5 +8,4 @@ public class Participant
     public int TotalPoints { get; set; }
 
     public ICollection<Prediction> Predictions { get; set; } = [];
-    public ICollection<DayPredictionOrder> DayPredictionOrders { get; set; } = [];
 }

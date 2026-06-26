@@ -8,7 +8,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Participant> Participants => Set<Participant>();
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<Prediction> Predictions => Set<Prediction>();
-    public DbSet<DayPredictionOrder> DayPredictionOrders => Set<DayPredictionOrder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -16,10 +15,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Prediction>()
             .HasIndex(p => new { p.ParticipantId, p.MatchId })
-            .IsUnique();
-
-        modelBuilder.Entity<DayPredictionOrder>()
-            .HasIndex(d => new { d.Date, d.ParticipantId })
             .IsUnique();
 
         modelBuilder.Entity<Participant>().HasData(
