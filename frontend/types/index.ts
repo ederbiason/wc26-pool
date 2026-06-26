@@ -41,12 +41,6 @@ export interface MatchWithVisibility extends Match {
   predictionVisibility: PredictionVisibility;
 }
 
-export interface DayPredictionOrder {
-  participantId: number;
-  participantName: string;
-  order: number;
-  hasSubmittedAll: boolean;
-}
 
 export interface Participant {
   id: number;
