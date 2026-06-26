@@ -13,7 +13,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<ScoringService>();
-builder.Services.AddScoped<PredictionOrderService>();
 builder.Services.AddScoped<PredictionVisibilityService>();
 builder.Services.AddScoped<FootballApiService>();
 builder.Services.AddHttpClient<FootballApiService>();

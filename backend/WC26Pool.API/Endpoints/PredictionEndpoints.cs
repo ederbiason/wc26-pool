@@ -14,8 +14,7 @@ public static class PredictionEndpoints
 
         group.MapPost("/", async (
             CreatePredictionRequest request,
-            AppDbContext db,
-            PredictionOrderService orderService) =>
+            AppDbContext db) =>
         {
             var participantId = request.ParticipantId;
 
@@ -36,36 +35,6 @@ public static class PredictionEndpoints
             if (existingPrediction is not null)
                 return Results.Conflict("Prediction already exists for this match");
 
-            // Use Brasília date so 23h games are grouped with the correct local day
-            var matchDay = PredictionOrderService.GetBrasiliaDate(match.MatchDate);
-
-            var orderExists = await db.DayPredictionOrders
-                .AnyAsync(d => d.Date == matchDay);
-
-            if (!orderExists)
-                await orderService.GenerateOrderForDateAsync(matchDay);
-
-            // Find the earliest match of this Brasília day (UTC boundaries)
-            var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
-            var dayStartLocal = new DateTime(matchDay.Year, matchDay.Month, matchDay.Day,
-                                             0, 0, 0, DateTimeKind.Unspecified);
-            var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal, brasiliaZone);
-            var dayEndUtc   = dayStartUtc.AddDays(1);
-
-            var firstMatchOfDay = await db.Matches
-                .Where(m => m.MatchDate.UtcDateTime >= dayStartUtc && m.MatchDate.UtcDateTime < dayEndUtc)
-                .OrderBy(m => m.MatchDate)
-                .FirstOrDefaultAsync();
-
-            if (firstMatchOfDay is null)
-                return Results.UnprocessableEntity("No matches found for this day");
-
-            var canPredict = await orderService.CanParticipantPredictAsync(
-                participantId, matchDay, firstMatchOfDay.MatchDate);
-
-            if (!canPredict)
-                return Results.UnprocessableEntity("You are not allowed to predict yet based on the current order");
-
             var prediction = new Prediction
             {
                 ParticipantId = participantId,
@@ -77,8 +46,6 @@ public static class PredictionEndpoints
 
             db.Predictions.Add(prediction);
             await db.SaveChangesAsync();
-
-            await orderService.UpdateSubmissionStatusAsync(participantId, matchDay);
 
             return Results.Created($"/api/predictions/{prediction.Id}", new { prediction.Id });
         });
@@ -110,25 +77,7 @@ public static class PredictionEndpoints
             return Results.Ok(result);
         });
 
-        group.MapGet("/order/{date}", async (string date, AppDbContext db) =>
-        {
-            if (!DateOnly.TryParse(date, out var parsedDate))
-                return Results.BadRequest("Invalid date format. Use yyyy-MM-dd");
 
-            var orders = await db.DayPredictionOrders
-                .AsNoTracking()
-                .Include(d => d.Participant)
-                .Where(d => d.Date == parsedDate)
-                .OrderBy(d => d.Order)
-                .Select(d => new DayPredictionOrderDto(
-                    d.ParticipantId,
-                    d.Participant.Name,
-                    d.Order,
-                    d.HasSubmittedAll))
-                .ToListAsync();
-
-            return Results.Ok(orders);
-        });
     }
 
     private static int? ParseParticipantId(HttpContext httpContext)
