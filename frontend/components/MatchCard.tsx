@@ -185,13 +185,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
     ...(visibility?.pendingParticipants ?? []),
   ];
 
-  const canPredict =
-    match.status === "NotStarted" &&
-    !myPrediction &&
-    (visibility?.pendingParticipants.some(
-      (p) => p.participantId === identity?.participantId
-    ) ??
-      false);
+  const canPredict = match.status === "NotStarted" && !myPrediction;
 
   const handlePredicted = useCallback(
     (home: number, away: number) => {
@@ -304,6 +298,12 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {match.status !== "NotStarted" && (
+        <div className="px-4 pb-4">
+          <span className="text-[#86B59A] text-xs">Palpites encerrados</span>
         </div>
       )}
 
