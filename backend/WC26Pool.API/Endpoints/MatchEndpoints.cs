@@ -6,32 +6,7 @@ using WC26Pool.API.Services;
 
 namespace WC26Pool.API.Endpoints;
 
-internal static class BrasiliaTime
-{
-    private static readonly TimeZoneInfo Zone =
-        TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
-
-    /// Returns (startUtc, endUtc) for the current day in Brasília time.
-    public static (DateTime startUtc, DateTime endUtc) TodayUtcBounds()
-    {
-        var nowBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone);
-        var startLocal = new DateTime(nowBrasilia.Year, nowBrasilia.Month, nowBrasilia.Day,
-                                      0, 0, 0, DateTimeKind.Unspecified);
-        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, Zone);
-        return (startUtc, startUtc.AddDays(1));
-    }
-
-    /// Returns the UTC boundaries for the window [today+daysFrom, today+daysTo) in Brasília.
-    public static (DateTime startUtc, DateTime endUtc) OffsetUtcBounds(int daysFrom, int daysTo)
-    {
-        var nowBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone);
-        var baseLocal = new DateTime(nowBrasilia.Year, nowBrasilia.Month, nowBrasilia.Day,
-                                     0, 0, 0, DateTimeKind.Unspecified);
-        var startUtc = TimeZoneInfo.ConvertTimeToUtc(baseLocal.AddDays(daysFrom), Zone);
-        var endUtc   = TimeZoneInfo.ConvertTimeToUtc(baseLocal.AddDays(daysTo),   Zone);
-        return (startUtc, endUtc);
-    }
-}
+using WC26Pool.API.Helpers;
 
 public static class MatchEndpoints
 {
@@ -71,10 +46,9 @@ public static class MatchEndpoints
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
-            var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
             var grouped = matches
-                .GroupBy(m => DateOnly.FromDateTime(
-                    TimeZoneInfo.ConvertTimeFromUtc(m.MatchDate.UtcDateTime, brasiliaZone).Date))
+                .AsEnumerable()
+                .GroupBy(m => BrasiliaTime.GetDisplayDay(m.MatchDate))
                 .OrderBy(g => g.Key)
                 .Select(g => new UpcomingDayDto(
                     g.Key.ToString("yyyy-MM-dd"),

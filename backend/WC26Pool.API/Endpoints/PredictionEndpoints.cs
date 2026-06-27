@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WC26Pool.API.Data;
 using WC26Pool.API.DTOs;
 using WC26Pool.API.Models;
+using WC26Pool.API.Helpers;
 using WC26Pool.API.Services;
 
 namespace WC26Pool.API.Endpoints;
@@ -61,9 +62,11 @@ public static class PredictionEndpoints
 
             var participantId = ParseParticipantId(httpContext);
 
+            var (startUtc, endUtc) = BrasiliaTime.DisplayDayUtcBounds(parsedDate);
+
             var matches = await db.Matches
                 .AsNoTracking()
-                .Where(m => DateOnly.FromDateTime(m.MatchDate.Date) == parsedDate)
+                .Where(m => m.MatchDate >= startUtc && m.MatchDate < endUtc)
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
