@@ -25,12 +25,12 @@ public static class MatchEndpoints
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
-            var result = new List<MatchWithVisibilityDto>();
-            foreach (var match in matches)
-            {
-                var visibility = await visibilityService.GetVisibilityForMatchAsync(match.Id, match.Status, participantId);
-                result.Add(MatchWithVisibilityDto.FromMatch(match, visibility));
-            }
+            var matchStatuses = matches.ToDictionary(m => m.Id, m => m.Status);
+            var visibilityDict = await visibilityService.GetVisibilityForMatchesAsync(matchStatuses, participantId);
+
+            var result = matches
+                .Select(m => MatchWithVisibilityDto.FromMatch(m, visibilityDict[m.Id]))
+                .ToList();
 
             return Results.Ok(result);
         });

@@ -19,18 +19,19 @@ public static class PredictionEndpoints
         {
             var participantId = request.ParticipantId;
 
-            var match = await db.Matches.FindAsync(request.MatchId);
+            var match = await db.Matches.AsNoTracking().FirstOrDefaultAsync(m => m.Id == request.MatchId);
             if (match is null)
                 return Results.NotFound("Match not found");
 
             if (match.Status != MatchStatus.NotStarted)
                 return Results.UnprocessableEntity($"This match has already {match.Status.ToString().ToLower()} — predictions are closed");
 
-            var participant = await db.Participants.FindAsync(participantId);
+            var participant = await db.Participants.AsNoTracking().FirstOrDefaultAsync(p => p.Id == participantId);
             if (participant is null)
                 return Results.NotFound("Participant not found");
 
             var existingPrediction = await db.Predictions
+                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.ParticipantId == participantId && p.MatchId == request.MatchId);
 
             if (existingPrediction is not null)
@@ -70,12 +71,12 @@ public static class PredictionEndpoints
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync();
 
-            var result = new List<MatchWithVisibilityDto>();
-            foreach (var match in matches)
-            {
-                var visibility = await visibilityService.GetVisibilityForMatchAsync(match.Id, match.Status, participantId);
-                result.Add(MatchWithVisibilityDto.FromMatch(match, visibility));
-            }
+            var matchStatuses = matches.ToDictionary(m => m.Id, m => m.Status);
+            var visibilityDict = await visibilityService.GetVisibilityForMatchesAsync(matchStatuses, participantId);
+
+            var result = matches
+                .Select(m => MatchWithVisibilityDto.FromMatch(m, visibilityDict[m.Id]))
+                .ToList();
 
             return Results.Ok(result);
         });
