@@ -71,9 +71,9 @@ public static class FootballApiMatchStatusMapper
 {
     public static MatchStatus MapStatus(string status) => status?.ToUpper() switch
     {
-        "SCHEDULED" or "TIMED" or "POSTPONED" or "CANCELLED" or "SUSPENDED" => MatchStatus.NotStarted,
-        "IN_PLAY" or "PAUSED" or "HALFTIME" or "EXTRA_TIME" or "PENALTY_SHOOTOUT" => MatchStatus.InProgress,
-        "FINISHED" or "AWARDED" => MatchStatus.Finished,
+        "SCHEDULED" or "TIMED" or "POSTPONED" => MatchStatus.NotStarted,
+        "IN_PLAY" or "PAUSED" or "HALFTIME" or "EXTRA_TIME" or "PENALTY" or "PENALTY_SHOOTOUT" or "SUSPENDED" => MatchStatus.InProgress,
+        "FINISHED" or "AWARDED" or "CANCELLED" => MatchStatus.Finished,
         _ => MatchStatus.NotStarted
     };
 }
