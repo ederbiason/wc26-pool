@@ -124,7 +124,7 @@ public class FootballPollingService(
 
             return minutesUntilNext switch
             {
-                < 10 => TimeSpan.FromSeconds(30),
+                <= 0 => TimeSpan.FromMinutes(1),
                 < 30 => TimeSpan.FromMinutes(2),
                 < 120 => TimeSpan.FromMinutes(10),
                 _ => TimeSpan.FromMinutes(20)
