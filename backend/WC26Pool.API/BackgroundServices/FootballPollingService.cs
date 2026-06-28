@@ -147,6 +147,13 @@ public class FootballPollingService(
         {
             var externalId = apiMatch.Id.ToString();
             var newStatus = FootballApiMatchStatusMapper.MapStatus(apiMatch.Status);
+            var duration = apiMatch.Score?.Duration ?? "REGULAR";
+            var stage = apiMatch.Stage switch
+            {
+                "LAST_32" or "LAST_16" or "QUARTER_FINALS" or "SEMI_FINALS" or "THIRD_PLACE" or "FINAL" => apiMatch.Stage,
+                _ => "GROUP_STAGE"
+            };
+            var groupName = apiMatch.Group;
 
             var existing = await db.Matches
                 .FirstOrDefaultAsync(m => m.ExternalId == externalId, cancellationToken);
@@ -164,6 +171,13 @@ public class FootballPollingService(
                     Status = newStatus,
                     HomeScore = apiMatch.Score?.FullTime?.Home,
                     AwayScore = apiMatch.Score?.FullTime?.Away,
+                    Stage = stage,
+                    GroupName = groupName,
+                    Duration = duration,
+                    RegularTimeHomeScore = apiMatch.Score?.RegularTime?.Home,
+                    RegularTimeAwayScore = apiMatch.Score?.RegularTime?.Away,
+                    PenaltyHomeScore = apiMatch.Score?.Penalties?.Home,
+                    PenaltyAwayScore = apiMatch.Score?.Penalties?.Away,
                     PointsCalculated = false
                 });
             }
@@ -181,6 +195,13 @@ public class FootballPollingService(
                 existing.Status = newStatus;
                 existing.HomeScore = apiMatch.Score?.FullTime?.Home;
                 existing.AwayScore = apiMatch.Score?.FullTime?.Away;
+                existing.Stage = stage;
+                existing.GroupName = groupName;
+                existing.Duration = duration;
+                existing.RegularTimeHomeScore = apiMatch.Score?.RegularTime?.Home;
+                existing.RegularTimeAwayScore = apiMatch.Score?.RegularTime?.Away;
+                existing.PenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
+                existing.PenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
 
                 // Update team names when API resolves previously unknown teams
                 if (existing.HomeTeam == "A definir" && apiMatch.HomeTeam?.Name is { } homeName)

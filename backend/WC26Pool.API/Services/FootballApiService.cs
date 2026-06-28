@@ -47,6 +47,8 @@ public record FootballApiMatch(
     int Id,
     string UtcDate,
     string Status,
+    string Stage,
+    string? Group,
     FootballApiTeam HomeTeam,
     FootballApiTeam AwayTeam,
     FootballApiScore Score
@@ -59,7 +61,12 @@ public record FootballApiTeam(
 );
 
 public record FootballApiScore(
-    FootballApiScoreDetail? FullTime
+    string? Winner,
+    string? Duration,
+    FootballApiScoreDetail? FullTime,
+    FootballApiScoreDetail? RegularTime,
+    FootballApiScoreDetail? ExtraTime,
+    FootballApiScoreDetail? Penalties
 );
 
 public record FootballApiScoreDetail(
