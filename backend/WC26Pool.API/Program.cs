@@ -10,7 +10,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null)));
 
 builder.Services.AddScoped<ScoringService>();
 builder.Services.AddScoped<PredictionVisibilityService>();
@@ -60,12 +64,17 @@ app.MapRankingEndpoints();
 app.MapAdminEndpoints();
 app.MapParticipantEndpoints();
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTimeOffset.UtcNow }));
-
-using (var scope = app.Services.CreateScope())
+app.MapGet("/health", async (AppDbContext db) =>
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
+    try
+    {
+        await db.Database.CanConnectAsync();
+        return Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTimeOffset.UtcNow });
+    }
+    catch
+    {
+        return Results.Json(new { status = "unhealthy", database = "disconnected", timestamp = DateTimeOffset.UtcNow }, statusCode: 503);
+    }
+});
 
 app.Run();
