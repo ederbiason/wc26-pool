@@ -13,7 +13,14 @@ public record MatchDto(
     string Status,
     int? HomeScore,
     int? AwayScore,
-    bool PointsCalculated
+    bool PointsCalculated,
+    string Stage,
+    string? GroupName,
+    string Duration,
+    int? RegularTimeHomeScore,
+    int? RegularTimeAwayScore,
+    int? PenaltyHomeScore,
+    int? PenaltyAwayScore
 )
 {
     public static MatchDto FromMatch(Match m) => new(
@@ -27,7 +34,14 @@ public record MatchDto(
         m.Status.ToString(),
         m.HomeScore,
         m.AwayScore,
-        m.PointsCalculated
+        m.PointsCalculated,
+        m.Stage,
+        m.GroupName,
+        m.Duration,
+        m.RegularTimeHomeScore,
+        m.RegularTimeAwayScore,
+        m.PenaltyHomeScore,
+        m.PenaltyAwayScore
     );
 }
 
@@ -43,6 +57,13 @@ public record MatchWithVisibilityDto(
     int? HomeScore,
     int? AwayScore,
     bool PointsCalculated,
+    string Stage,
+    string? GroupName,
+    string Duration,
+    int? RegularTimeHomeScore,
+    int? RegularTimeAwayScore,
+    int? PenaltyHomeScore,
+    int? PenaltyAwayScore,
     PredictionVisibilityDto PredictionVisibility
 )
 {
@@ -58,6 +79,13 @@ public record MatchWithVisibilityDto(
         m.HomeScore,
         m.AwayScore,
         m.PointsCalculated,
+        m.Stage,
+        m.GroupName,
+        m.Duration,
+        m.RegularTimeHomeScore,
+        m.RegularTimeAwayScore,
+        m.PenaltyHomeScore,
+        m.PenaltyAwayScore,
         visibility
     );
 }
@@ -75,7 +103,8 @@ public record CreatePredictionRequest(
     int ParticipantId,
     int MatchId,
     int PredictedHomeScore,
-    int PredictedAwayScore
+    int PredictedAwayScore,
+    string? PenaltyWinnerTeam
 );
 
 public record PredictionDto(
@@ -85,6 +114,7 @@ public record PredictionDto(
     int MatchId,
     int PredictedHomeScore,
     int PredictedAwayScore,
+    string? PenaltyWinnerTeam,
     DateTimeOffset CreatedAt,
     int? PointsEarned
 )
@@ -96,6 +126,7 @@ public record PredictionDto(
         p.MatchId,
         p.PredictedHomeScore,
         p.PredictedAwayScore,
+        p.PenaltyWinnerTeam,
         p.CreatedAt,
         p.PointsEarned
     );

@@ -21,5 +21,13 @@ public class Match
     public int? AwayScore { get; set; }
     public bool PointsCalculated { get; set; }
 
+    public string Stage { get; set; } = "GROUP_STAGE";
+    public string? GroupName { get; set; }
+    public string Duration { get; set; } = "REGULAR";
+    public int? RegularTimeHomeScore { get; set; }
+    public int? RegularTimeAwayScore { get; set; }
+    public int? PenaltyHomeScore { get; set; }
+    public int? PenaltyAwayScore { get; set; }
+
     public ICollection<Prediction> Predictions { get; set; } = [];
 }

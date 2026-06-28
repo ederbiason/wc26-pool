@@ -7,6 +7,7 @@ public class Prediction
     public int MatchId { get; set; }
     public int PredictedHomeScore { get; set; }
     public int PredictedAwayScore { get; set; }
+    public string? PenaltyWinnerTeam { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public int? PointsEarned { get; set; }
 
