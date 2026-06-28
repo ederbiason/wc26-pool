@@ -12,6 +12,12 @@ export interface Match {
   homeScore: number | null;
   awayScore: number | null;
   pointsCalculated: boolean;
+  duration: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
+  stage: string;
+  penaltyHomeScore: number | null;
+  penaltyAwayScore: number | null;
+  regularTimeHomeScore: number | null;
+  regularTimeAwayScore: number | null;
 }
 
 export interface Prediction {
@@ -23,6 +29,7 @@ export interface Prediction {
   predictedAwayScore: number;
   createdAt: string;
   pointsEarned: number | null;
+  penaltyWinnerTeam: "HOME" | "AWAY" | null;
 }
 
 export interface ParticipantSummary {

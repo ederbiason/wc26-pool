@@ -57,6 +57,7 @@ export const api = {
     matchId: number;
     predictedHomeScore: number;
     predictedAwayScore: number;
+    penaltyWinnerTeam: "HOME" | "AWAY" | null;
   }) => post<{ id: number }>("/api/predictions", payload),
 
   getRanking: () => get<RankingEntry[]>("/api/ranking"),
