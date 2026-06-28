@@ -12,21 +12,23 @@ interface Props {
   onPredicted: () => void;
 }
 
-function StatusBadge({ status }: { status: Match["status"] }) {
-  if (status === "NotStarted")
+function StatusBadge({ match }: { match: Match }) {
+  if (match.status === "NotStarted")
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-gold bg-brand-gold/10 rounded-full px-2 py-0.5">
         <span className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse" />
         Em breve
       </span>
     );
-  if (status === "InProgress")
+  if (match.status === "InProgress") {
+    const label = match.duration === "EXTRA_TIME" ? "Prorrogação" : match.duration === "PENALTY_SHOOTOUT" ? "Pênaltis" : "Ao vivo";
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-green-400 bg-green-400/10 rounded-full px-2 py-0.5">
         <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
-        Ao vivo
+        {label}
       </span>
     );
+  }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[#86B59A] bg-[#86B59A]/10 rounded-full px-2 py-0.5">
       <span className="w-1.5 h-1.5 rounded-full bg-[#86B59A]" />
@@ -79,16 +81,28 @@ function ScoreDisplay({ match }: { match: Match }) {
 
   if (hasScore) {
     return (
-      <div className="flex items-center gap-2 min-w-[80px] justify-center">
-        <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
-          {match.homeScore}
-        </span>
-        <span className="font-display text-2xl text-[#1E4A32] leading-none">
-          ×
-        </span>
-        <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
-          {match.awayScore}
-        </span>
+      <div className="flex flex-col items-center gap-1 min-w-[80px]">
+        <div className="flex items-center gap-2 justify-center">
+          <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
+            {match.homeScore}
+          </span>
+          <span className="font-display text-2xl text-[#1E4A32] leading-none">
+            ×
+          </span>
+          <span className="font-display text-5xl text-brand-gold leading-none tabular-nums">
+            {match.awayScore}
+          </span>
+        </div>
+        {match.duration === "EXTRA_TIME" && (
+          <span className="text-brand-gold text-[10px] font-bold uppercase tracking-widest bg-brand-gold/10 rounded px-1.5 py-0.5">
+            Prorrogação
+          </span>
+        )}
+        {match.duration === "PENALTY_SHOOTOUT" && (
+          <span className="text-brand-gold text-[10px] font-bold uppercase tracking-widest bg-brand-gold/10 rounded px-1.5 py-0.5">
+            Pênaltis: {match.penaltyHomeScore ?? 0} × {match.penaltyAwayScore ?? 0}
+          </span>
+        )}
       </div>
     );
   }
@@ -105,18 +119,25 @@ function ScoreDisplay({ match }: { match: Match }) {
   );
 }
 
-function RevealedPredictionRow({ prediction }: { prediction: Prediction }) {
+function RevealedPredictionRow({ prediction, match }: { prediction: Prediction; match: Match }) {
+  const penaltyTeamName = prediction.penaltyWinnerTeam === "HOME" ? match.homeTeam : prediction.penaltyWinnerTeam === "AWAY" ? match.awayTeam : null;
+
   return (
     <div className="flex flex-col text-xs py-0.5 min-w-0 gap-0.5">
       <span className="text-[#E8F5E9] font-medium truncate">
         {prediction.participantName}
       </span>
       <div className="flex items-center gap-1.5">
-        <span className="font-bold text-brand-gold tabular-nums">
+        <span className="font-bold text-brand-gold tabular-nums flex-none">
           {prediction.predictedHomeScore} × {prediction.predictedAwayScore}
         </span>
+        {penaltyTeamName && (
+          <span className="text-brand-gold text-[10px] font-semibold bg-brand-gold/10 rounded px-1 truncate">
+            🥅 {penaltyTeamName}
+          </span>
+        )}
         {prediction.pointsEarned !== null && (
-          <span className="text-green-400 font-bold text-[10px] bg-green-400/10 rounded px-1">
+          <span className="text-green-400 font-bold text-[10px] bg-green-400/10 rounded px-1 flex-none">
             +{prediction.pointsEarned}
           </span>
         )}
@@ -153,6 +174,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
   const [localPrediction, setLocalPrediction] = useState<{
     home: number;
     away: number;
+    penaltyWinnerTeam: "HOME" | "AWAY" | null;
   } | null>(null);
 
   const myServerPrediction = identity
@@ -171,6 +193,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
         predictedAwayScore: localPrediction.away,
         createdAt: new Date().toISOString(),
         pointsEarned: null,
+        penaltyWinnerTeam: localPrediction.penaltyWinnerTeam,
       }
     : undefined);
 
@@ -188,8 +211,8 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
   const canPredict = match.status === "NotStarted" && !myPrediction;
 
   const handlePredicted = useCallback(
-    (home: number, away: number) => {
-      setLocalPrediction({ home, away });
+    (home: number, away: number, penaltyWinnerTeam: "HOME" | "AWAY" | null) => {
+      setLocalPrediction({ home, away, penaltyWinnerTeam });
       onPredicted();
     },
     [onPredicted]
@@ -200,7 +223,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
   return (
     <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <StatusBadge status={match.status} />
+        <StatusBadge match={match} />
         {match.status === "NotStarted" && (
           <span className="text-[#86B59A] text-xs">
             {formatTimeBrasilia(match.matchDate)}
@@ -237,10 +260,10 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
               ) : (
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                   {visibility?.predictions.map((p) => (
-                    <RevealedPredictionRow key={p.id} prediction={p} />
+                    <RevealedPredictionRow key={p.id} prediction={p} match={match} />
                   ))}
                   {myPrediction && !myServerPrediction && (
-                    <RevealedPredictionRow prediction={myPrediction} />
+                    <RevealedPredictionRow prediction={myPrediction} match={match} />
                   )}
                 </div>
               )}
@@ -267,9 +290,16 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
                           <span className="text-brand-gold font-semibold truncate">
                             {p.participantName}
                           </span>
-                          <span className="font-bold text-brand-gold tabular-nums flex-none ml-auto">
-                            {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
-                          </span>
+                          <div className="flex items-center gap-1.5 ml-auto flex-none">
+                            <span className="font-bold text-brand-gold tabular-nums">
+                              {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
+                            </span>
+                            {myPrediction.penaltyWinnerTeam && (
+                              <span className="text-brand-gold text-[10px] font-semibold bg-brand-gold/10 rounded px-1">
+                                🥅 {myPrediction.penaltyWinnerTeam === "HOME" ? match.homeTeam : match.awayTeam}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     }
@@ -289,9 +319,16 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
                       <span className="text-brand-gold font-semibold truncate">
                         {myPrediction.participantName}
                       </span>
-                      <span className="font-bold text-brand-gold tabular-nums flex-none ml-auto">
-                        {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
-                      </span>
+                      <div className="flex items-center gap-1.5 ml-auto flex-none">
+                        <span className="font-bold text-brand-gold tabular-nums">
+                          {myPrediction.predictedHomeScore}×{myPrediction.predictedAwayScore}
+                        </span>
+                        {myPrediction.penaltyWinnerTeam && (
+                          <span className="text-brand-gold text-[10px] font-semibold bg-brand-gold/10 rounded px-1">
+                            🥅 {myPrediction.penaltyWinnerTeam === "HOME" ? match.homeTeam : match.awayTeam}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -309,7 +346,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
 
       {canPredict && (
         <div className="px-4 pb-4">
-          <PredictionForm matchId={match.id} onSuccess={handlePredicted} />
+          <PredictionForm match={match} onSuccess={handlePredicted} />
         </div>
       )}
     </div>
