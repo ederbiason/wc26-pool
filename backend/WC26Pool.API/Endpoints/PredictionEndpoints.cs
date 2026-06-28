@@ -37,12 +37,23 @@ public static class PredictionEndpoints
             if (existingPrediction is not null)
                 return Results.Conflict("Prediction already exists for this match");
 
+            if (match.Stage != "GROUP_STAGE")
+            {
+                if (request.PredictedHomeScore == request.PredictedAwayScore && string.IsNullOrEmpty(request.PenaltyWinnerTeam))
+                    return Results.UnprocessableEntity("Penalty winner is required for draw predictions in knockout stage");
+            }
+            
+            var penaltyWinnerTeam = request.PredictedHomeScore == request.PredictedAwayScore && match.Stage != "GROUP_STAGE" 
+                ? request.PenaltyWinnerTeam 
+                : null;
+
             var prediction = new Prediction
             {
                 ParticipantId = participantId,
                 MatchId = request.MatchId,
                 PredictedHomeScore = request.PredictedHomeScore,
                 PredictedAwayScore = request.PredictedAwayScore,
+                PenaltyWinnerTeam = penaltyWinnerTeam,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
