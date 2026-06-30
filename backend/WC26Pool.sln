@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WC26Pool.API", "WC26Pool.API\WC26Pool.API.csproj", "{7BF119BE-55A2-427F-B2AB-54342A7B848A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WC26Pool.API.Tests", "WC26Pool.API.Tests\WC26Pool.API.Tests.csproj", "{E28B3BF0-736D-4D29-90ED-CC8C20FCF29C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{7BF119BE-55A2-427F-B2AB-54342A7B848A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BF119BE-55A2-427F-B2AB-54342A7B848A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BF119BE-55A2-427F-B2AB-54342A7B848A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E28B3BF0-736D-4D29-90ED-CC8C20FCF29C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E28B3BF0-736D-4D29-90ED-CC8C20FCF29C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E28B3BF0-736D-4D29-90ED-CC8C20FCF29C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E28B3BF0-736D-4D29-90ED-CC8C20FCF29C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
