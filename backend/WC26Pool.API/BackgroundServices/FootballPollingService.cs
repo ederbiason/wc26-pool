@@ -169,8 +169,8 @@ public class FootballPollingService(
                     AwayTeamFlag = apiMatch.AwayTeam?.Crest ?? string.Empty,
                     MatchDate = DateTimeOffset.Parse(apiMatch.UtcDate),
                     Status = newStatus,
-                    HomeScore = apiMatch.Score?.FullTime?.Home,
-                    AwayScore = apiMatch.Score?.FullTime?.Away,
+                    HomeScore = apiMatch.Score?.RegularTime?.Home ?? apiMatch.Score?.FullTime?.Home,
+                    AwayScore = apiMatch.Score?.RegularTime?.Away ?? apiMatch.Score?.FullTime?.Away,
                     Stage = stage,
                     GroupName = groupName,
                     Duration = duration,
@@ -188,8 +188,8 @@ public class FootballPollingService(
                 var oldHomeScore = existing.HomeScore;
                 var oldAwayScore = existing.AwayScore;
 
-                var updatedHomeScore = apiMatch.Score?.FullTime?.Home;
-                var updatedAwayScore = apiMatch.Score?.FullTime?.Away;
+                var updatedHomeScore = apiMatch.Score?.RegularTime?.Home ?? apiMatch.Score?.FullTime?.Home;
+                var updatedAwayScore = apiMatch.Score?.RegularTime?.Away ?? apiMatch.Score?.FullTime?.Away;
                 var updatedDuration = duration;
                 var updatedPenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
                 var updatedPenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
