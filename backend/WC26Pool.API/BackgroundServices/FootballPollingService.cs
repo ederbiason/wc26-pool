@@ -160,6 +160,7 @@ public class FootballPollingService(
 
             if (existing is null)
             {
+                var (newHome, newAway) = ResolveMatchScore(apiMatch.Score);
                 db.Matches.Add(new Match
                 {
                     ExternalId = externalId,
@@ -169,8 +170,8 @@ public class FootballPollingService(
                     AwayTeamFlag = apiMatch.AwayTeam?.Crest ?? string.Empty,
                     MatchDate = DateTimeOffset.Parse(apiMatch.UtcDate),
                     Status = newStatus,
-                    HomeScore = apiMatch.Score?.RegularTime?.Home ?? apiMatch.Score?.FullTime?.Home,
-                    AwayScore = apiMatch.Score?.RegularTime?.Away ?? apiMatch.Score?.FullTime?.Away,
+                    HomeScore = newHome,
+                    AwayScore = newAway,
                     Stage = stage,
                     GroupName = groupName,
                     Duration = duration,
@@ -188,8 +189,7 @@ public class FootballPollingService(
                 var oldHomeScore = existing.HomeScore;
                 var oldAwayScore = existing.AwayScore;
 
-                var updatedHomeScore = apiMatch.Score?.RegularTime?.Home ?? apiMatch.Score?.FullTime?.Home;
-                var updatedAwayScore = apiMatch.Score?.RegularTime?.Away ?? apiMatch.Score?.FullTime?.Away;
+                var (updatedHomeScore, updatedAwayScore) = ResolveMatchScore(apiMatch.Score);
                 var updatedDuration = duration;
                 var updatedPenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
                 var updatedPenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
@@ -271,5 +271,27 @@ public class FootballPollingService(
     {
         var midnight = now.Date.AddDays(1);
         return midnight - now.DateTime;
+    }
+
+    /// Resolves HomeScore/AwayScore for a match based on the duration field.
+    /// For REGULAR duration, fullTime is the authoritative result (regularTime is absent in the API response).
+    /// For EXTRA_TIME or PENALTY_SHOOTOUT, HomeScore/AwayScore should reflect goals through regular+extra time
+    /// only (penalties are stored separately in PenaltyHomeScore/AwayScore).
+    private static (int? Home, int? Away) ResolveMatchScore(FootballApiScore? score)
+    {
+        if (score is null)
+            return (null, null);
+
+        return score.Duration switch
+        {
+            "REGULAR" => (score.FullTime?.Home, score.FullTime?.Away),
+
+            "EXTRA_TIME" or "PENALTY_SHOOTOUT" => (
+                (score.RegularTime?.Home ?? 0) + (score.ExtraTime?.Home ?? 0),
+                (score.RegularTime?.Away ?? 0) + (score.ExtraTime?.Away ?? 0)
+            ),
+
+            _ => (score.FullTime?.Home, score.FullTime?.Away)
+        };
     }
 }
