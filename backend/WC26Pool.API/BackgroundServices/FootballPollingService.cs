@@ -185,6 +185,21 @@ public class FootballPollingService(
             {
                 var previousStatus = existing.Status;
 
+                var oldHomeScore = existing.HomeScore;
+                var oldAwayScore = existing.AwayScore;
+
+                var updatedHomeScore = apiMatch.Score?.FullTime?.Home;
+                var updatedAwayScore = apiMatch.Score?.FullTime?.Away;
+                var updatedDuration = duration;
+                var updatedPenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
+                var updatedPenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
+
+                var scoreChanged = existing.HomeScore != updatedHomeScore
+                    || existing.AwayScore != updatedAwayScore
+                    || existing.Duration != updatedDuration
+                    || existing.PenaltyHomeScore != updatedPenaltyHomeScore
+                    || existing.PenaltyAwayScore != updatedPenaltyAwayScore;
+
                 if (previousStatus != newStatus)
                 {
                     logger.LogWarning(
@@ -193,15 +208,15 @@ public class FootballPollingService(
                 }
 
                 existing.Status = newStatus;
-                existing.HomeScore = apiMatch.Score?.FullTime?.Home;
-                existing.AwayScore = apiMatch.Score?.FullTime?.Away;
+                existing.HomeScore = updatedHomeScore;
+                existing.AwayScore = updatedAwayScore;
                 existing.Stage = stage;
                 existing.GroupName = groupName;
-                existing.Duration = duration;
+                existing.Duration = updatedDuration;
                 existing.RegularTimeHomeScore = apiMatch.Score?.RegularTime?.Home;
                 existing.RegularTimeAwayScore = apiMatch.Score?.RegularTime?.Away;
-                existing.PenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
-                existing.PenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
+                existing.PenaltyHomeScore = updatedPenaltyHomeScore;
+                existing.PenaltyAwayScore = updatedPenaltyAwayScore;
 
                 // Update team names when API resolves previously unknown teams
                 if (existing.HomeTeam == "A definir" && apiMatch.HomeTeam?.Name is { } homeName)
@@ -215,6 +230,33 @@ public class FootballPollingService(
 
                 if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished && scoringService is not null)
                 {
+                    await db.SaveChangesAsync(cancellationToken);
+                    await scoringService.CalculatePointsForMatchAsync(existing.Id);
+                    continue;
+                }
+
+                if (previousStatus == MatchStatus.Finished && newStatus == MatchStatus.Finished && scoreChanged && existing.PointsCalculated && scoringService is not null)
+                {
+                    logger.LogWarning(
+                        "Score correction detected for match {Id}: {OldScore} → {NewScore}. Recalculating points.",
+                        existing.Id, $"{oldHomeScore}-{oldAwayScore}", $"{updatedHomeScore}-{updatedAwayScore}");
+
+                    existing.PointsCalculated = false;
+
+                    var predictions = await db.Predictions
+                        .Include(p => p.Participant)
+                        .Where(p => p.MatchId == existing.Id)
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var prediction in predictions)
+                    {
+                        if (prediction.PointsEarned.HasValue)
+                        {
+                            prediction.Participant.TotalPoints -= prediction.PointsEarned.Value;
+                            prediction.PointsEarned = null;
+                        }
+                    }
+
                     await db.SaveChangesAsync(cancellationToken);
                     await scoringService.CalculatePointsForMatchAsync(existing.Id);
                     continue;
