@@ -277,7 +277,7 @@ public class FootballPollingService(
     /// For REGULAR duration, fullTime is the authoritative result (regularTime is absent in the API response).
     /// For EXTRA_TIME or PENALTY_SHOOTOUT, HomeScore/AwayScore should reflect goals through regular+extra time
     /// only (penalties are stored separately in PenaltyHomeScore/AwayScore).
-    private static (int? Home, int? Away) ResolveMatchScore(FootballApiScore? score)
+    internal static (int? Home, int? Away) ResolveMatchScore(FootballApiScore? score)
     {
         if (score is null)
             return (null, null);
