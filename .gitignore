@@ -1,6 +1,8 @@
 .agents/
 backend/WC26Pool.API/bin/
 backend/WC26Pool.API/obj/
+backend/WC26Pool.API.Tests/bin/
+backend/WC26Pool.API.Tests/obj/
 backend/WC26Pool.API/appsettings.Development.json
 *.user
 .vs/
