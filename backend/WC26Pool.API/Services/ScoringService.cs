@@ -42,7 +42,7 @@ public class ScoringService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-    private static int CalculatePoints(
+    internal static int CalculatePoints(
         int predHome, int predAway, string? predPenaltyWinner,
         int actualHome, int actualAway, string stage, string duration,
         int? penaltyHome, int? penaltyAway)
@@ -81,19 +81,33 @@ public class ScoringService(AppDbContext db)
             return 3;
         }
 
-        // 2 pontos
+        // 2 pontos — Condição A: placar exato (pênaltis errado ou sem pênaltis)
         if (predHome == actualHome && predAway == actualAway)
         {
             return 2;
         }
 
-        // 1 ponto
+        // 2 pontos — Condição B (nova regra): empate no palpite + vencedor dos pênaltis correto
+        if (predHome == predAway &&
+            duration == "PENALTY_SHOOTOUT" &&
+            predPenaltyWinner == actualWinner)
+        {
+            return 2;
+        }
+
+        // 1 ponto — acertou o classificado (winner), sem se qualificar para 2 ou 3 pts
         var predictedWinner = "DRAW";
         if (predHome > predAway) predictedWinner = "HOME";
         else if (predAway > predHome) predictedWinner = "AWAY";
         else if (predPenaltyWinner != null) predictedWinner = predPenaltyWinner;
 
         if (predictedWinner == actualWinner && predictedWinner != "DRAW")
+        {
+            return 1;
+        }
+
+        // 1 ponto — palpite de empate em jogo que foi a pênaltis (acertou que precisaria de pênaltis)
+        if (predHome == predAway && duration == "PENALTY_SHOOTOUT")
         {
             return 1;
         }
