@@ -17,22 +17,8 @@ public static class MatchEndpoints
         group.MapGet("/today", async (HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
         {
             var participantId = ParseParticipantId(httpContext);
-            var (startUtc, endUtc) = BrasiliaTime.TodayUtcBounds();
-
-            var matches = await db.Matches
-                .AsNoTracking()
-                .Where(m => m.MatchDate >= startUtc && m.MatchDate < endUtc)
-                .OrderBy(m => m.MatchDate)
-                .ToListAsync();
-
-            var matchStatuses = matches.ToDictionary(m => m.Id, m => m.Status);
-            var visibilityDict = await visibilityService.GetVisibilityForMatchesAsync(matchStatuses, participantId);
-
-            var result = matches
-                .Select(m => MatchWithVisibilityDto.FromMatch(m, visibilityDict[m.Id]))
-                .ToList();
-
-            return Results.Ok(result);
+            var today = BrasiliaTime.GetTodayDisplayDay();
+            return Results.Ok(await GetMatchesForDayAsync(db, visibilityService, today, participantId));
         });
 
         group.MapGet("/upcoming", async (AppDbContext db) =>
@@ -58,6 +44,15 @@ public static class MatchEndpoints
             return Results.Ok(grouped);
         });
 
+        group.MapGet("/day/{date}", async (string date, HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
+        {
+            if (!DateOnly.TryParse(date, out var parsedDate))
+                return Results.BadRequest("Invalid date format. Use yyyy-MM-dd");
+
+            var participantId = ParseParticipantId(httpContext);
+            return Results.Ok(await GetMatchesForDayAsync(db, visibilityService, parsedDate, participantId));
+        });
+
         group.MapGet("/{id:int}", async (int id, HttpContext httpContext, AppDbContext db, PredictionVisibilityService visibilityService) =>
         {
             var participantId = ParseParticipantId(httpContext);
@@ -80,5 +75,27 @@ public static class MatchEndpoints
             int.TryParse(value, out var id))
             return id;
         return null;
+    }
+
+    private static async Task<List<MatchWithVisibilityDto>> GetMatchesForDayAsync(
+        AppDbContext db,
+        PredictionVisibilityService visibilityService,
+        DateOnly day,
+        int? participantId)
+    {
+        var (startUtc, endUtc) = BrasiliaTime.DisplayDayUtcBounds(day);
+
+        var matches = await db.Matches
+            .AsNoTracking()
+            .Where(m => m.MatchDate >= startUtc && m.MatchDate < endUtc)
+            .OrderBy(m => m.MatchDate)
+            .ToListAsync();
+
+        var matchStatuses = matches.ToDictionary(m => m.Id, m => m.Status);
+        var visibilityDict = await visibilityService.GetVisibilityForMatchesAsync(matchStatuses, participantId);
+
+        return matches
+            .Select(m => MatchWithVisibilityDto.FromMatch(m, visibilityDict[m.Id]))
+            .ToList();
     }
 }
