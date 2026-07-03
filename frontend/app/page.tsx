@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { AppHeader } from "@/components/AppHeader";
 import { MatchCard } from "@/components/MatchCard";
 import { MatchCardSkeleton } from "@/components/MatchCardSkeleton";
-import { api } from "@/lib/api";
+import { api, formatDateBrasilia } from "@/lib/api";
 import type { MatchWithVisibility } from "@/types";
 
 const POLL_INTERVAL = 60_000;
+
+type DayView = "today" | "yesterday";
 
 function shouldPoll(matches: MatchWithVisibility[] | undefined): boolean {
   if (!matches || matches.length === 0) return false;
@@ -17,19 +19,61 @@ function shouldPoll(matches: MatchWithVisibility[] | undefined): boolean {
   );
 }
 
+function yesterdayDateParam(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+function todayDateParam(): string {
+  return new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
+}
+
+function formatDisplayDate(isoDate: string): string {
+  return formatDateBrasilia(`${isoDate}T12:00:00`);
+}
+
 export default function HomePage() {
+  const [view, setView] = useState<DayView>("today");
+
+  const yesterdayDate = yesterdayDateParam();
+  const todayDate = todayDateParam();
+
   const {
-    data: matches,
-    isLoading,
-    error,
-    mutate,
+    data: todayMatches,
+    isLoading: todayLoading,
+    error: todayError,
+    mutate: mutateToday,
   } = useSWR("matches-today", api.getMatchesToday, {
     refreshInterval: (data) => (shouldPoll(data) ? POLL_INTERVAL : 0),
   });
 
+  const {
+    data: yesterdayMatches,
+    isLoading: yesterdayLoading,
+    error: yesterdayError,
+    mutate: mutateYesterday,
+  } = useSWR(
+    view === "yesterday" ? `matches-day-${yesterdayDate}` : null,
+    () => api.getMatchesForDay(yesterdayDate)
+  );
+
+  const isToday = view === "today";
+  const matches = isToday ? todayMatches : yesterdayMatches;
+  const isLoading = isToday ? todayLoading : yesterdayLoading;
+  const error = isToday ? todayError : yesterdayError;
+
   const handlePredicted = useCallback(() => {
-    mutate();
-  }, [mutate]);
+    if (isToday) mutateToday();
+    else mutateYesterday();
+  }, [isToday, mutateToday, mutateYesterday]);
+
+  const displayTitle = isToday ? "JOGOS DE HOJE" : "JOGOS DE ONTEM";
+  const displayDate = isToday
+    ? formatDisplayDate(todayDate)
+    : formatDisplayDate(yesterdayDate);
 
   return (
     <div className="flex flex-col flex-1">
@@ -37,16 +81,38 @@ export default function HomePage() {
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
         <div>
           <h1 className="font-display text-brand-gold text-3xl tracking-wider leading-none">
-            JOGOS DE HOJE
+            {displayTitle}
           </h1>
-          <p className="text-[#86B59A] text-sm mt-0.5">
-            {new Date().toLocaleDateString("pt-BR", {
-              timeZone: "America/Sao_Paulo",
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
+          <p className="text-[#86B59A] text-sm mt-0.5 capitalize">
+            {displayDate}
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            id="btn-yesterday"
+            onClick={() => setView("yesterday")}
+            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+              view === "yesterday"
+                ? "bg-brand-gold text-brand-green"
+                : "bg-brand-surface border border-[#1E4A32] text-[#86B59A] hover:border-brand-gold/50 hover:text-[#E8F5E9]"
+            }`}
+          >
+            <span>←</span>
+            Ontem
+          </button>
+          <button
+            id="btn-today"
+            onClick={() => setView("today")}
+            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+              view === "today"
+                ? "bg-brand-gold text-brand-green"
+                : "bg-brand-surface border border-[#1E4A32] text-[#86B59A] hover:border-brand-gold/50 hover:text-[#E8F5E9]"
+            }`}
+          >
+            Hoje
+            <span>→</span>
+          </button>
         </div>
 
         {isLoading && (
@@ -69,9 +135,15 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <span className="text-5xl">⚽</span>
             <p className="text-[#86B59A] text-sm text-center">
-              Nenhum jogo hoje.
-              <br />
-              Confira a agenda para os próximos jogos.
+              {isToday ? (
+                <>
+                  Nenhum jogo hoje.
+                  <br />
+                  Confira a agenda para os próximos jogos.
+                </>
+              ) : (
+                "Nenhum jogo ontem."
+              )}
             </p>
           </div>
         )}
