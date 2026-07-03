@@ -230,8 +230,46 @@ public class FootballPollingService(
 
                 if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished && scoringService is not null)
                 {
+                    var scoreStable = oldHomeScore == updatedHomeScore && oldAwayScore == updatedAwayScore;
+
+                    if (!scoreStable)
+                    {
+                        logger.LogWarning(
+                            "Match {Id} ({Home} vs {Away}) finished with score change ({OldHome}-{OldAway} \u2192 {NewHome}-{NewAway}). Skipping scoring until next cycle confirms.",
+                            existing.Id, existing.HomeTeam, existing.AwayTeam,
+                            oldHomeScore, oldAwayScore, updatedHomeScore, updatedAwayScore);
+
+                        await db.SaveChangesAsync(cancellationToken);
+                        continue;
+                    }
+
                     await db.SaveChangesAsync(cancellationToken);
                     await scoringService.CalculatePointsForMatchAsync(existing.Id);
+                    continue;
+                }
+
+                if (previousStatus == MatchStatus.Finished && newStatus == MatchStatus.Finished
+                    && !existing.PointsCalculated && scoringService is not null)
+                {
+                    var scoreStable = oldHomeScore == updatedHomeScore && oldAwayScore == updatedAwayScore;
+
+                    if (scoreStable)
+                    {
+                        logger.LogInformation(
+                            "Match {Id} ({Home} vs {Away}) score confirmed stable ({NewHome}-{NewAway}). Calculating points.",
+                            existing.Id, existing.HomeTeam, existing.AwayTeam, updatedHomeScore, updatedAwayScore);
+
+                        await db.SaveChangesAsync(cancellationToken);
+                        await scoringService.CalculatePointsForMatchAsync(existing.Id);
+                        continue;
+                    }
+
+                    logger.LogWarning(
+                        "Match {Id} ({Home} vs {Away}) score still unstable ({OldHome}-{OldAway} \u2192 {NewHome}-{NewAway}). Waiting another cycle.",
+                        existing.Id, existing.HomeTeam, existing.AwayTeam,
+                        oldHomeScore, oldAwayScore, updatedHomeScore, updatedAwayScore);
+
+                    await db.SaveChangesAsync(cancellationToken);
                     continue;
                 }
 
