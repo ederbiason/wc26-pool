@@ -47,6 +47,9 @@ export const api = {
 
   getMatchesToday: () => get<MatchWithVisibility[]>("/api/matches/today"),
 
+  getMatchesForDay: (date: string) =>
+    get<MatchWithVisibility[]>(`/api/matches/day/${date}`),
+
   getMatchesUpcoming: () => get<UpcomingDay[]>("/api/matches/upcoming"),
 
   getPredictionsForDay: (date: string) =>
