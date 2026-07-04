@@ -230,7 +230,11 @@ public class FootballPollingService(
 
                 if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished && scoringService is not null)
                 {
-                    var scoreStable = oldHomeScore == updatedHomeScore && oldAwayScore == updatedAwayScore;
+                    var scoreStable = oldHomeScore == updatedHomeScore
+                        && oldAwayScore == updatedAwayScore
+                        && existing.Duration == updatedDuration
+                        && existing.PenaltyHomeScore == updatedPenaltyHomeScore
+                        && existing.PenaltyAwayScore == updatedPenaltyAwayScore;
 
                     if (!scoreStable)
                     {
@@ -251,7 +255,11 @@ public class FootballPollingService(
                 if (previousStatus == MatchStatus.Finished && newStatus == MatchStatus.Finished
                     && !existing.PointsCalculated && scoringService is not null)
                 {
-                    var scoreStable = oldHomeScore == updatedHomeScore && oldAwayScore == updatedAwayScore;
+                    var scoreStable = oldHomeScore == updatedHomeScore
+                        && oldAwayScore == updatedAwayScore
+                        && existing.Duration == updatedDuration
+                        && existing.PenaltyHomeScore == updatedPenaltyHomeScore
+                        && existing.PenaltyAwayScore == updatedPenaltyAwayScore;
 
                     if (scoreStable)
                     {
