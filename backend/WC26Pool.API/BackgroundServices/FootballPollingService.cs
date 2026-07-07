@@ -228,7 +228,19 @@ public class FootballPollingService(
                 if (string.IsNullOrEmpty(existing.AwayTeamFlag) && apiMatch.AwayTeam?.Crest is { } awayFlag)
                     existing.AwayTeamFlag = awayFlag;
 
-                if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished && scoringService is not null)
+                // Block 1: Finished → InProgress (API corrected — reset finish detection)
+                if (previousStatus == MatchStatus.Finished && newStatus == MatchStatus.InProgress)
+                {
+                    existing.FinishedDetectedAt = null;
+                    existing.PointsCalculated = false;
+                    logger.LogWarning(
+                        "Match {Id} ({Home} vs {Away}) reverted from Finished to InProgress. Resetting finish detection.",
+                        existing.Id, existing.HomeTeam, existing.AwayTeam);
+                }
+
+                // Block 2: InProgress → Finished (with 2-minute confirmation delay)
+                if (previousStatus != MatchStatus.Finished && newStatus == MatchStatus.Finished
+                    && scoringService is not null)
                 {
                     var scoreStable = oldHomeScore == updatedHomeScore
                         && oldAwayScore == updatedAwayScore
@@ -239,13 +251,40 @@ public class FootballPollingService(
                     if (!scoreStable)
                     {
                         logger.LogWarning(
-                            "Match {Id} ({Home} vs {Away}) finished with score change ({OldHome}-{OldAway} \u2192 {NewHome}-{NewAway}). Skipping scoring until next cycle confirms.",
-                            existing.Id, existing.HomeTeam, existing.AwayTeam,
-                            oldHomeScore, oldAwayScore, updatedHomeScore, updatedAwayScore);
+                            "Match {Id} ({Home} vs {Away}) finished with score change. Waiting next cycle.",
+                            existing.Id, existing.HomeTeam, existing.AwayTeam);
+
+                        existing.FinishedDetectedAt = null;
+                        await db.SaveChangesAsync(cancellationToken);
+                        continue;
+                    }
+
+                    if (existing.FinishedDetectedAt is null)
+                    {
+                        logger.LogWarning(
+                            "Match {Id} ({Home} vs {Away}) detected as Finished for first time. Waiting 2 minutes to confirm.",
+                            existing.Id, existing.HomeTeam, existing.AwayTeam);
+
+                        existing.FinishedDetectedAt = DateTimeOffset.UtcNow;
+                        await db.SaveChangesAsync(cancellationToken);
+                        continue;
+                    }
+
+                    var minutesSinceFinished = (DateTimeOffset.UtcNow - existing.FinishedDetectedAt.Value).TotalMinutes;
+
+                    if (minutesSinceFinished < 2)
+                    {
+                        logger.LogInformation(
+                            "Match {Id} waiting for finish confirmation ({Minutes:F1} min elapsed, need 2).",
+                            existing.Id, minutesSinceFinished);
 
                         await db.SaveChangesAsync(cancellationToken);
                         continue;
                     }
+
+                    logger.LogInformation(
+                        "Match {Id} ({Home} vs {Away}) confirmed Finished after {Minutes:F1} minutes. Calculating points.",
+                        existing.Id, existing.HomeTeam, existing.AwayTeam, minutesSinceFinished);
 
                     await db.SaveChangesAsync(cancellationToken);
                     await scoringService.CalculatePointsForMatchAsync(existing.Id);
