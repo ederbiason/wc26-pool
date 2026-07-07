@@ -20,6 +20,7 @@ public class Match
     public int? HomeScore { get; set; }
     public int? AwayScore { get; set; }
     public bool PointsCalculated { get; set; }
+    public DateTimeOffset? FinishedDetectedAt { get; set; }
 
     public string Stage { get; set; } = "GROUP_STAGE";
     public string? GroupName { get; set; }
