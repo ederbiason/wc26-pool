@@ -107,8 +107,17 @@ public class FootballPollingService(
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync(cancellationToken);
 
-            if (dbMatches.Count == 0 || dbMatches.All(m => m.Status == MatchStatus.Finished))
+            var hasPendingConfirmation = dbMatches.Any(m =>
+                m.Status == MatchStatus.Finished &&
+                !m.PointsCalculated &&
+                m.FinishedDetectedAt != null);
+
+            if (!hasPendingConfirmation &&
+                (dbMatches.Count == 0 || dbMatches.All(m => m.Status == MatchStatus.Finished)))
                 return TimeUntilMidnight(nowUtc);
+
+            if (hasPendingConfirmation && dbMatches.All(m => m.Status == MatchStatus.Finished))
+                return TimeSpan.FromMinutes(1);
 
             if (dbMatches.Any(m => m.Status == MatchStatus.InProgress))
                 return TimeSpan.FromMinutes(1);
