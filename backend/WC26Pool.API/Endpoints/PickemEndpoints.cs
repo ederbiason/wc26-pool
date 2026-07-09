@@ -130,7 +130,7 @@ public static class PickemEndpoints
 
             // Only the owner can view their own bracket if not yet revealed
             if (!isRevealed && requesterId != participantId)
-                return Results.Forbid();
+                return Results.StatusCode(403);
 
             var entry = await db.PickemEntries
                 .AsNoTracking()
