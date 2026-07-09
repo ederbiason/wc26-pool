@@ -82,7 +82,7 @@ export default function PickemPage() {
 
         {/* Tabs de Participantes */}
         {!isLoading && status && (
-          <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 scrollbar-hide">
+          <div className="flex overflow-x-auto gap-2 pb-4 -mx-4 px-4 scrollbar-hide">
             {allParticipants.map((p) => {
               const isParticipantMe = p.participantId === identity?.participantId;
               const isCompleted = status.completed.some(
@@ -98,7 +98,7 @@ export default function PickemPage() {
                     if (!isLocked) setActiveTabId(p.participantId);
                   }}
                   disabled={isLocked}
-                  className={`flex-none px-4 py-2 rounded-xl text-xs font-bold tracking-widest whitespace-nowrap transition-colors ${
+                  className={`flex-none px-4 py-2.5 rounded-xl text-xs font-bold tracking-widest whitespace-nowrap transition-colors ${
                     isSelected
                       ? "bg-brand-gold text-brand-green"
                       : isLocked
@@ -106,10 +106,13 @@ export default function PickemPage() {
                       : "bg-brand-surface border border-[#1E4A32] text-[#E8F5E9] hover:border-brand-gold/50"
                   }`}
                 >
-                  {isLocked && <span className="mr-1.5">🔒</span>}
-                  {!isCompleted && !isLocked && <span className="mr-1.5">⏳</span>}
-                  {isCompleted && !isLocked && <span className="mr-1.5">✅</span>}
+                  {isCompleted ? (
+                    <span className="mr-1.5">✅</span>
+                  ) : (
+                    <span className="mr-1.5">⏳</span>
+                  )}
                   {p.participantName}
+                  {isLocked && <span className="ml-1.5 opacity-70">🔒</span>}
                 </button>
               );
             })}
