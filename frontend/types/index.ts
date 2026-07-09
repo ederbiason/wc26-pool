@@ -73,3 +73,50 @@ export interface StoredIdentity {
   participantName: string;
   isAdmin: boolean;
 }
+
+export interface BracketSlot {
+  slotIndex: number;
+  teamName: string;
+  teamFlag: string;
+  isEliminated: boolean;
+  eliminatedBy: string | null;
+}
+
+export interface PickemBracket {
+  quarterFinals: BracketSlot[];
+  deadline: string;
+}
+
+export interface PickemPickSubmission {
+  round: "QUARTER_FINAL" | "SEMI_FINAL" | "FINAL";
+  slotIndex: number;
+  chosenTeam: string;
+  chosenTeamFlag: string;
+}
+
+export interface PickemEntrySubmission {
+  participantId: number;
+  picks: PickemPickSubmission[];
+}
+
+export interface PickemStatus {
+  completed: { participantId: number; participantName: string }[];
+  pending: { participantId: number; participantName: string }[];
+  isRevealed: boolean;
+}
+
+export interface PickemEntry {
+  id: number;
+  participantId: number;
+  participantName: string;
+  createdAt: string;
+  isLocked: boolean;
+  picks: {
+    round: string;
+    slotIndex: number;
+    chosenTeam: string;
+    chosenTeamFlag: string;
+    isCorrect: boolean | null;
+    pointsEarned: number | null;
+  }[];
+}

@@ -5,6 +5,10 @@ import type {
   UpcomingDay,
   Participant,
   RankingEntry,
+  PickemBracket,
+  PickemStatus,
+  PickemEntry,
+  PickemEntrySubmission,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
@@ -64,6 +68,13 @@ export const api = {
   }) => post<{ id: number }>("/api/predictions", payload),
 
   getRanking: () => get<RankingEntry[]>("/api/ranking"),
+
+  getPickemBracket: () => get<PickemBracket>("/api/pickem/bracket"),
+  getPickemStatus: () => get<PickemStatus>("/api/pickem/status"),
+  getPickemEntry: (participantId: number) =>
+    get<PickemEntry>(`/api/pickem/entry/${participantId}`),
+  submitPickemEntry: (payload: PickemEntrySubmission) =>
+    post<{ id: number }>("/api/pickem/entry", payload),
 };
 
 export function formatTimeBrasilia(utcDateString: string): string {
