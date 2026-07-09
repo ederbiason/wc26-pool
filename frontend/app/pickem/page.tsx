@@ -12,6 +12,7 @@ import type { PickemPickSubmission } from "@/types";
 export default function PickemPage() {
   const { identity } = useIdentity();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTabId, setActiveTabId] = useState<number | null>(null);
 
   const { data: status, isLoading: statusLoading } = useSWR(
     "pickem-status",
@@ -23,13 +24,25 @@ export default function PickemPage() {
     api.getPickemBracket
   );
 
-  const hasSubmitted = status?.completed.some(
-    (p) => p.participantId === identity?.participantId
+  const allParticipants = status
+    ? [...status.completed, ...status.pending].sort((a, b) => {
+        if (a.participantId === identity?.participantId) return -1;
+        if (b.participantId === identity?.participantId) return 1;
+        return 0;
+      })
+    : [];
+
+  const selectedParticipantId = activeTabId ?? identity?.participantId;
+  const isMe = selectedParticipantId === identity?.participantId;
+  const isSelectedCompleted = status?.completed.some(
+    (p) => p.participantId === selectedParticipantId
   );
   
   const { data: entry, mutate: mutateEntry, isLoading: entryLoading } = useSWR(
-    hasSubmitted && identity ? `pickem-entry-${identity.participantId}` : null,
-    () => api.getPickemEntry(identity!.participantId)
+    isSelectedCompleted && selectedParticipantId
+      ? `pickem-entry-${selectedParticipantId}`
+      : null,
+    () => api.getPickemEntry(selectedParticipantId!)
   );
 
   const isDeadlinePassed = status?.isRevealed;
@@ -52,7 +65,7 @@ export default function PickemPage() {
     }
   };
 
-  const isLoading = statusLoading || bracketLoading || (hasSubmitted && entryLoading);
+  const isLoading = statusLoading || bracketLoading || (isSelectedCompleted && entryLoading);
 
   return (
     <div className="flex flex-col flex-1 pb-20">
@@ -67,26 +80,39 @@ export default function PickemPage() {
           </p>
         </div>
 
-        {/* Indicador de status */}
+        {/* Tabs de Participantes */}
         {!isLoading && status && (
-          <div className="flex flex-col gap-2 p-4 bg-brand-surface2 rounded-2xl border border-[#1E4A32]">
-            <h3 className="text-brand-gold text-xs font-bold uppercase tracking-widest mb-1">
-              Participantes
-            </h3>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              {status.completed.map((p) => (
-                <div key={p.participantId} className="flex items-center gap-2 text-xs">
-                  <span className="text-base leading-none">✅</span>
-                  <span className="text-[#E8F5E9] truncate">{p.participantName}</span>
-                </div>
-              ))}
-              {status.pending.map((p) => (
-                <div key={p.participantId} className="flex items-center gap-2 text-xs">
-                  <span className="text-base leading-none">⏳</span>
-                  <span className="text-[#86B59A] truncate">{p.participantName}</span>
-                </div>
-              ))}
-            </div>
+          <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 scrollbar-hide">
+            {allParticipants.map((p) => {
+              const isParticipantMe = p.participantId === identity?.participantId;
+              const isCompleted = status.completed.some(
+                (c) => c.participantId === p.participantId
+              );
+              const isLocked = !status.isRevealed && !isParticipantMe;
+              const isSelected = selectedParticipantId === p.participantId;
+
+              return (
+                <button
+                  key={p.participantId}
+                  onClick={() => {
+                    if (!isLocked) setActiveTabId(p.participantId);
+                  }}
+                  disabled={isLocked}
+                  className={`flex-none px-4 py-2 rounded-xl text-xs font-bold tracking-widest whitespace-nowrap transition-colors ${
+                    isSelected
+                      ? "bg-brand-gold text-brand-green"
+                      : isLocked
+                      ? "bg-brand-surface border border-[#1E4A32] text-[#86B59A] opacity-50 cursor-not-allowed"
+                      : "bg-brand-surface border border-[#1E4A32] text-[#E8F5E9] hover:border-brand-gold/50"
+                  }`}
+                >
+                  {isLocked && <span className="mr-1.5">🔒</span>}
+                  {!isCompleted && !isLocked && <span className="mr-1.5">⏳</span>}
+                  {isCompleted && !isLocked && <span className="mr-1.5">✅</span>}
+                  {p.participantName}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -96,21 +122,23 @@ export default function PickemPage() {
           </div>
         ) : (
           <>
-            {!hasSubmitted && isDeadlinePassed ? (
+            {!isSelectedCompleted && isDeadlinePassed ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <span className="text-5xl">🔒</span>
                 <p className="text-[#86B59A] text-sm text-center">
                   Prazo encerrado.
                   <br />
-                  Você não enviou seu bracket a tempo.
+                  {isMe
+                    ? "Você não enviou seu bracket a tempo."
+                    : "Este participante não enviou o bracket a tempo."}
                 </p>
               </div>
             ) : (
-              bracket && (
+              bracket && (!isMe || isSelectedCompleted || !isDeadlinePassed) && (
                 <PickemBracketUI
                   bracket={bracket}
                   entry={entry}
-                  onSubmit={handleSubmit}
+                  onSubmit={isMe ? handleSubmit : undefined}
                   isSubmitting={isSubmitting}
                 />
               )
