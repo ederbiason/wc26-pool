@@ -34,6 +34,27 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
     };
   };
 
+  const getRealSfTeam = (qfMatchIndex: number): string | null => {
+    const t1 = qfSlots.find((s) => s.slotIndex === qfMatchIndex * 2);
+    const t2 = qfSlots.find((s) => s.slotIndex === qfMatchIndex * 2 + 1);
+    if (!t1 || !t2) return null;
+    if (t1.isEliminated && t1.eliminatedBy === t2.teamName) return t2.teamName;
+    if (t2.isEliminated && t2.eliminatedBy === t1.teamName) return t1.teamName;
+    return null;
+  };
+
+  const getRealFinalTeam = (sfMatchIndex: number): string | null => {
+    const t1Name = getRealSfTeam(sfMatchIndex * 2);
+    const t2Name = getRealSfTeam(sfMatchIndex * 2 + 1);
+    if (!t1Name || !t2Name) return null;
+    const t1 = qfSlots.find((s) => s.teamName === t1Name);
+    const t2 = qfSlots.find((s) => s.teamName === t2Name);
+    if (!t1 || !t2) return null;
+    if (t1.isEliminated && t1.eliminatedBy === t2.teamName) return t2.teamName;
+    if (t2.isEliminated && t2.eliminatedBy === t1.teamName) return t1.teamName;
+    return null;
+  };
+
   const handleQfPick = (matchIndex: number, team: BracketSlot) => {
     if (isReadOnly) return;
     const newQf = [...qfPicks];
@@ -115,7 +136,8 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
     isSelected: boolean,
     onClick: () => void,
     disabled: boolean,
-    isCorrect?: boolean | null
+    selectionIsCorrect?: boolean | null,
+    actualTeamName?: string | null
   ) => {
     return (
       <button
@@ -129,18 +151,33 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
             : "border-[#1E4A32] bg-brand-surface hover:border-brand-gold/50"
         }`}
       >
-        <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-surface2 flex items-center justify-center flex-none">
-          {team?.teamFlag ? (
-            <img src={team.teamFlag} alt={team.teamName} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-sm">🏳️</span>
+        <div className="relative flex-none">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-surface2 flex items-center justify-center">
+            {team?.teamFlag ? (
+              <img src={team.teamFlag} alt={team.teamName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-sm">🏳️</span>
+            )}
+          </div>
+          {isReadOnly && isSelected && selectionIsCorrect === true && (
+            <div className="absolute -top-1 -right-1 bg-brand-surface rounded-full text-[10px] leading-none shadow-sm z-10">
+              ✅
+            </div>
+          )}
+          {isReadOnly && isSelected && selectionIsCorrect === false && (
+            <div className="absolute -top-1 -right-1 bg-brand-surface rounded-full text-[10px] leading-none shadow-sm z-10">
+              ❌
+            </div>
           )}
         </div>
-        <span className={`text-sm font-semibold truncate flex-1 ${isSelected ? "text-brand-gold" : "text-[#E8F5E9]"}`}>
-          {team?.teamName || "A definir"}
-        </span>
-        {isReadOnly && isCorrect === true && <span className="text-sm">✅</span>}
-        {isReadOnly && isCorrect === false && <span className="text-sm">❌</span>}
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className={`text-sm font-semibold truncate ${isSelected ? "text-brand-gold" : "text-[#E8F5E9]"}`}>
+            {team?.teamName || "A definir"}
+          </span>
+          {isReadOnly && actualTeamName && actualTeamName !== team?.teamName && (
+            <span className="text-[10px] text-[#86B59A] truncate mt-0.5">Real: {actualTeamName}</span>
+          )}
+        </div>
       </button>
     );
   };
@@ -167,7 +204,7 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   pickedTeam?.teamName === t1?.teamName,
                   () => t1 && handleQfPick(matchIndex, t1),
                   !t1,
-                  isReadOnly ? pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                  isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null
                 )}
                 <div className="flex justify-center -my-1 relative z-10">
                   <span className="bg-[#1E4A32] text-[#86B59A] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
@@ -179,7 +216,7 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   pickedTeam?.teamName === t2?.teamName,
                   () => t2 && handleQfPick(matchIndex, t2),
                   !t2,
-                  isReadOnly ? pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                  isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null
                 )}
               </div>
             );
@@ -207,7 +244,8 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   pickedTeam?.teamName === t1?.teamName,
                   () => t1 && handleSfPick(matchIndex, t1 as BracketSlot),
                   !t1,
-                  isReadOnly ? pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                  isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                  getRealSfTeam(matchIndex * 2)
                 )}
                 <div className="flex justify-center -my-1 relative z-10">
                   <span className="bg-[#1E4A32] text-[#86B59A] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
@@ -219,7 +257,8 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   pickedTeam?.teamName === t2?.teamName,
                   () => t2 && handleSfPick(matchIndex, t2 as BracketSlot),
                   !t2,
-                  isReadOnly ? pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                  isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                  getRealSfTeam(matchIndex * 2 + 1)
                 )}
               </div>
             );
@@ -245,7 +284,8 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                     pickedTeam?.teamName === t1?.teamName,
                     () => t1 && handleFinalPick(t1 as BracketSlot),
                     !t1,
-                    isReadOnly ? pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                    isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                    getRealFinalTeam(0)
                   )}
                   <div className="flex justify-center -my-1 relative z-10">
                     <span className="bg-[#1E4A32] text-[#86B59A] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
@@ -257,7 +297,8 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                     pickedTeam?.teamName === t2?.teamName,
                     () => t2 && handleFinalPick(t2 as BracketSlot),
                     !t2,
-                    isReadOnly ? pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null : null
+                    isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                    getRealFinalTeam(1)
                   )}
                 </>
               );
@@ -275,6 +316,19 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
           >
             {isSubmitting ? "Enviando..." : "Confirmar Pick'em"}
           </button>
+        </div>
+      )}
+
+      {isReadOnly && entry && (
+        <div className="flex justify-center pt-4">
+          <div className="bg-brand-surface2 border border-[#1E4A32] rounded-xl px-6 py-3 flex flex-col items-center gap-1 shadow-lg w-full max-w-sm">
+            <span className="text-brand-gold font-display text-2xl tracking-wider leading-none">
+              {entry.picks.filter((p) => p.isCorrect === true).length}/7
+            </span>
+            <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest">
+              Picks corretos — {entry.picks.reduce((acc, p) => acc + (p.pointsEarned ?? 0), 0)} pts
+            </span>
+          </div>
         </div>
       )}
     </div>
