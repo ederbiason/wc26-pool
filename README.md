@@ -20,6 +20,7 @@ A lightweight full-stack web app where each participant can submit predictions, 
 - 📊 **Live ranking** updated automatically after each match ends
 - 📆 **Upcoming matches calendar** showing the next 7 days grouped by date
 - ⚽ **Knockout stage support** with extra time and penalty shootout predictions
+- 🔁 **Match revalidation** — score corrections after a result is posted are automatically detected and points are recalculated
 - 📱 **Mobile-first design** since everyone accesses it from their phones
 
 ## Scoring Rules
@@ -36,12 +37,14 @@ A lightweight full-stack web app where each participant can submit predictions, 
 |---|---|
 | Correct scoreline (full time including extra time) + correct penalty winner | 3 pts |
 | Correct scoreline (full time including extra time) | 2 pts |
+| Predicted draw + correct penalty winner (game went to penalties) | 2 pts |
 | Correct team advancing (regardless of how) | 1 pt |
+| Predicted draw in a game that went to penalties (even if wrong winner) | 1 pt |
 | Wrong team advancing | 0 pts |
 
 Points are never cumulative — only the highest applicable tier is awarded per match.
 
-When predicting a draw in the knockout stage, selecting the penalty shootout winner becomes mandatory, since a draw must be resolved.
+When predicting a draw in the knockout stage, selecting the penalty shootout winner becomes mandatory, since a draw must be resolved. The backend enforces this validation and rejects draw predictions without a penalty winner.
 
 ## Tech Stack
 
@@ -81,20 +84,37 @@ The frontend never calls the football data API directly. The backend runs a `Bac
 **Polling intervals:**
 - No matches today or all finished → sleep until midnight
 - Next match in more than 2 hours → every 20 minutes
+- Next match in 30 minutes to 2 hours → every 10 minutes
 - Next match in less than 30 minutes → every 2 minutes
-- Match overdue (should have started) → every 1 minute until status updates
+- Match overdue (should have started but status not updated) → every 1 minute
 - Match in progress → every 1 minute
 
+The service also detects overdue matches — `NotStarted` matches whose kickoff time has already passed — and immediately fetches today's full data from the API to resolve the status.
+
 This keeps daily API usage well within the free tier's 10 requests/minute limit.
+
+### Match finish revalidation and confirmation delay
+External football APIs can briefly return `FINISHED` for a match while the score is still being finalized. To avoid awarding points based on a transient or incorrect result, the system uses a multi-stage confirmation flow:
+
+1. **First `Finished` detection**: The timestamp is recorded in `FinishedDetectedAt` but no points are calculated yet.
+2. **2-minute stabilization window**: If the match is still `Finished` on the next polling cycle and at least 2 minutes have elapsed, points are calculated.
+3. **Score unstable on first detection**: If the score also changed in the same cycle the match transitioned to `Finished`, the detection is reset and the cycle starts over.
+4. **Reverted to `InProgress`**: If the API walks back the `Finished` status (extra time added, etc.), `FinishedDetectedAt` is cleared, `PointsCalculated` is set to `false`, and the match re-enters the confirmation flow from scratch.
+5. **Score correction after points are calculated**: If a `Finished` match's score changes after points were already awarded, the system detects the drift, zeroes out all affected predictions, and recalculates points with the corrected data.
 
 ### Immutable predictions
 Once a prediction is submitted it cannot be changed, mirroring how the group operated on WhatsApp. The backend enforces this with a unique constraint on `(ParticipantId, MatchId)` and rejects duplicate submissions with a 409 response.
 
 ### Auto-reveal logic
-Predictions are hidden from other participants until either all six have submitted for that specific match, or the match kicks off — whichever comes first. This prevents anyone from copying someone else's pick. The visibility state is computed dynamically on every request, with no persistent toggle needed.
+Predictions are hidden from other participants until either all six have submitted for that specific match, or the match kicks off (or is already finished) — whichever comes first. This prevents anyone from copying someone else's pick. The visibility state is computed dynamically on every request, with no persistent toggle needed.
 
 ### Knockout stage adaptation
-Midway through the tournament the group added new scoring rules for the knockout rounds. The system was extended to track `duration` (REGULAR / EXTRA_TIME / PENALTY_SHOOTOUT), `regularTimeScore`, and `penaltyScore` separately, matching the data structure returned by the football-data.org API. The scoring service branches on the match `stage` field to apply the correct rule set.
+Midway through the tournament the group added new scoring rules for the knockout rounds. The system was extended to track `Duration` (REGULAR / EXTRA_TIME / PENALTY_SHOOTOUT), `RegularTimeHomeScore`/`RegularTimeAwayScore`, and `PenaltyHomeScore`/`PenaltyAwayScore` separately, matching the data structure returned by the football-data.org API. The scoring service branches on the match `Stage` field to apply the correct rule set.
+
+`HomeScore`/`AwayScore` always reflect goals through regular + extra time only — penalty goals are stored separately and never added to the main scoreline.
+
+### Timezone handling
+All date calculations use Brasília time (America/Sao\_Paulo) for determining "today", midnight resets, and grouping matches by display day. This is centralized in the `BrasiliaTime` helper class to avoid timezone bugs scattered across the codebase.
 
 ## Project Structure
 
@@ -106,8 +126,9 @@ wc26-pool/
 │       ├── Data/                 # EF Core DbContext and migrations
 │       ├── DTOs/                 # Request and response models
 │       ├── Endpoints/            # Minimal API route handlers
+│       ├── Helpers/              # BrasiliaTime timezone utilities
 │       ├── Models/               # Domain entities
-│       ├── Services/             # Business logic
+│       ├── Services/             # Business logic (scoring, visibility)
 │       └── Program.cs
 └── frontend/
     ├── app/                      # Next.js App Router pages
@@ -115,6 +136,22 @@ wc26-pool/
     ├── lib/                      # API client and localStorage helpers
     └── types/                    # TypeScript interfaces
 ```
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/matches/today` | Today's matches with prediction visibility |
+| `GET` | `/api/matches/day/{date}` | Matches for a specific date (yyyy-MM-dd) |
+| `GET` | `/api/matches/upcoming` | Next 7 days of matches grouped by date |
+| `GET` | `/api/matches/{id}` | Single match with visibility |
+| `GET` | `/api/predictions/day/{date}` | Predictions for a specific date |
+| `POST` | `/api/predictions` | Submit a prediction |
+| `GET` | `/api/participants` | List all participants |
+| `GET` | `/api/ranking` | Current standings |
+| `POST` | `/api/admin/sync-upcoming` | Manually trigger an upcoming matches sync |
+
+The `X-Participant-Id` request header is used to scope prediction visibility — each user only sees their own picks until the reveal condition is met.
 
 ## Running Locally
 
