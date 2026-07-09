@@ -24,6 +24,8 @@ builder.Services.AddHttpClient<FootballApiService>();
 builder.Services.AddSingleton<FootballPollingService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FootballPollingService>());
 
+builder.Services.AddHostedService<PickemBracketSeedService>();
+
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:3000"];
 
@@ -63,6 +65,7 @@ app.MapPredictionEndpoints();
 app.MapRankingEndpoints();
 app.MapAdminEndpoints();
 app.MapParticipantEndpoints();
+app.MapPickemEndpoints();
 
 app.MapGet("/health", async (AppDbContext db) =>
 {

@@ -39,6 +39,33 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
             return [];
         }
     }
+
+    public async Task<List<FootballApiMatch>> GetMatchesByStageAsync(string stage, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{_baseUrl}/competitions/{_competitionId}/matches?stage={stage}");
+
+            request.Headers.Add("X-Auth-Token", _apiKey);
+
+            var response = await httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var result = JsonSerializer.Deserialize<FootballApiResponse>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return result?.Matches ?? [];
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to fetch matches for stage {Stage}", stage);
+            return [];
+        }
+    }
 }
 
 public record FootballApiResponse(List<FootballApiMatch> Matches);
