@@ -9,12 +9,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<Prediction> Predictions => Set<Prediction>();
 
+    public DbSet<PickemEntry> PickemEntries => Set<PickemEntry>();
+    public DbSet<PickemPick> PickemPicks => Set<PickemPick>();
+    public DbSet<PickemStanding> PickemStandings => Set<PickemStanding>();
+    public DbSet<PickemBracketSlot> PickemBracketSlots => Set<PickemBracketSlot>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Prediction>()
             .HasIndex(p => new { p.ParticipantId, p.MatchId })
+            .IsUnique();
+
+        modelBuilder.Entity<PickemEntry>()
+            .HasIndex(e => e.ParticipantId)
+            .IsUnique();
+
+        modelBuilder.Entity<PickemStanding>()
+            .HasIndex(s => s.ParticipantId)
             .IsUnique();
 
         modelBuilder.Entity<Participant>().HasData(
