@@ -48,7 +48,7 @@ public class FootballPollingService(
         logger.LogInformation("API returned {Count} upcoming matches", apiMatches.Count);
 
         if (apiMatches.Count > 0)
-            await SyncMatchesAsync(db, apiMatches, scoringService: null, cancellationToken);
+            await SyncMatchesAsync(db, apiMatches, scoringService: null, pickemScoringService: null, cancellationToken);
 
         _lastUpcomingSync = today;
         logger.LogInformation("Upcoming sync complete — {Count} matches from {From} to {To}", apiMatches.Count, from, to);
@@ -60,6 +60,7 @@ public class FootballPollingService(
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var footballApi = scope.ServiceProvider.GetRequiredService<FootballApiService>();
         var scoringService = scope.ServiceProvider.GetRequiredService<ScoringService>();
+        var pickemScoringService = scope.ServiceProvider.GetRequiredService<PickemScoringService>();
 
         var nowUtc = DateTime.UtcNow;
         var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
@@ -90,7 +91,7 @@ public class FootballPollingService(
                 // Fetch today's full data to resolve overdue statuses
                 var overdueApiMatches = await footballApi.GetMatchesForDateAsync(today, cancellationToken);
                 if (overdueApiMatches.Count > 0)
-                    await SyncMatchesAsync(db, overdueApiMatches, scoringService, cancellationToken);
+                    await SyncMatchesAsync(db, overdueApiMatches, scoringService, pickemScoringService, cancellationToken);
             }
             // --------------------------------------------------------------------------
 
@@ -98,7 +99,7 @@ public class FootballPollingService(
 
             if (apiMatches.Count > 0)
             {
-                await SyncMatchesAsync(db, apiMatches, scoringService, cancellationToken);
+                await SyncMatchesAsync(db, apiMatches, scoringService, pickemScoringService, cancellationToken);
             }
 
             var dbMatches = await db.Matches
@@ -141,6 +142,7 @@ public class FootballPollingService(
         AppDbContext db,
         List<FootballApiMatch> apiMatches,
         ScoringService? scoringService,
+        PickemScoringService? pickemScoringService,
         CancellationToken cancellationToken)
     {
         foreach (var apiMatch in apiMatches)
@@ -288,6 +290,8 @@ public class FootballPollingService(
 
                     await db.SaveChangesAsync(cancellationToken);
                     await scoringService.CalculatePointsForMatchAsync(existing.Id);
+                    if (pickemScoringService is not null)
+                        await pickemScoringService.CalculatePickemPointsForMatchAsync(existing.Id);
                     continue;
                 }
 
@@ -308,6 +312,8 @@ public class FootballPollingService(
 
                         await db.SaveChangesAsync(cancellationToken);
                         await scoringService.CalculatePointsForMatchAsync(existing.Id);
+                        if (pickemScoringService is not null)
+                            await pickemScoringService.CalculatePickemPointsForMatchAsync(existing.Id);
                         continue;
                     }
 
