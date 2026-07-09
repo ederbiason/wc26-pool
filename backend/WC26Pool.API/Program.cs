@@ -17,6 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             errorCodesToAdd: null)));
 
 builder.Services.AddScoped<ScoringService>();
+builder.Services.AddScoped<PickemScoringService>();
 builder.Services.AddScoped<PredictionVisibilityService>();
 builder.Services.AddScoped<FootballApiService>();
 builder.Services.AddHttpClient<FootballApiService>();
