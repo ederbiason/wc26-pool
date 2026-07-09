@@ -164,5 +164,93 @@ public static class PickemEndpoints
 
             return Results.Ok(response);
         });
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/pickem/entry
+        // ─────────────────────────────────────────────────────────────────────
+        group.MapPost("/entry", async (PickemEntryRequest request, AppDbContext db) =>
+        {
+            // Deadline check
+            if (DateTimeOffset.UtcNow >= Deadline)
+                return Results.UnprocessableEntity("O prazo para envio do pick'em já encerrou.");
+
+            // Duplicate check
+            var existing = await db.PickemEntries
+                .AnyAsync(e => e.ParticipantId == request.ParticipantId);
+            if (existing)
+                return Results.Conflict("Você já enviou seu pick'em.");
+
+            // Picks count check
+            if (request.Picks.Count != 7)
+                return Results.UnprocessableEntity(
+                    "São necessários exatamente 7 picks: 4 QF + 2 SF + 1 Final.");
+
+            var qfPicks = request.Picks.Where(p => p.Round == "QUARTER_FINAL").ToList();
+            var sfPicks = request.Picks.Where(p => p.Round == "SEMI_FINAL").ToList();
+            var finalPicks = request.Picks.Where(p => p.Round == "FINAL").ToList();
+
+            if (qfPicks.Count != 4 || sfPicks.Count != 2 || finalPicks.Count != 1)
+                return Results.UnprocessableEntity(
+                    "Picks inválidos: esperados 4 QF, 2 SF e 1 Final.");
+
+            // Consistency: SF teams must have been picked in QF
+            var qfTeams = qfPicks.Select(p => p.ChosenTeam).ToHashSet();
+            foreach (var sf in sfPicks)
+            {
+                if (!qfTeams.Contains(sf.ChosenTeam))
+                    return Results.UnprocessableEntity(
+                        $"Time '{sf.ChosenTeam}' na semi não foi escolhido nas quartas.");
+            }
+
+            // Consistency: Final team must have been picked in SF
+            var sfTeams = sfPicks.Select(p => p.ChosenTeam).ToHashSet();
+            var champion = finalPicks[0].ChosenTeam;
+            if (!sfTeams.Contains(champion))
+                return Results.UnprocessableEntity(
+                    $"Campeão '{champion}' não foi escolhido nas semifinais.");
+
+            var entry = new PickemEntry
+            {
+                ParticipantId = request.ParticipantId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                IsLocked = false,
+                Picks = request.Picks.Select(p => new PickemPick
+                {
+                    Round = p.Round,
+                    SlotIndex = p.SlotIndex,
+                    ChosenTeam = p.ChosenTeam,
+                    ChosenTeamFlag = p.ChosenTeamFlag
+                }).ToList()
+            };
+
+            db.PickemEntries.Add(entry);
+
+            // Create standing row if not exists
+            var standingExists = await db.PickemStandings
+                .AnyAsync(s => s.ParticipantId == request.ParticipantId);
+            if (!standingExists)
+            {
+                db.PickemStandings.Add(new PickemStanding
+                {
+                    ParticipantId = request.ParticipantId,
+                    TotalPickemPoints = 0
+                });
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/pickem/entry/{request.ParticipantId}", new { entry.Id });
+        });
     }
 }
+
+// ─── Request DTOs ─────────────────────────────────────────────────────────────
+public record PickemEntryRequest(
+    int ParticipantId,
+    List<PickemPickRequest> Picks
+);
+
+public record PickemPickRequest(
+    string Round,
+    int SlotIndex,
+    string ChosenTeam,
+    string ChosenTeamFlag
+);
