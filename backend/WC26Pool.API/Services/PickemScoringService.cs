@@ -88,7 +88,7 @@ public class PickemScoringService(AppDbContext db, ILogger<PickemScoringService>
 
         await db.SaveChangesAsync();
 
-        // Recalculate PickemStanding totals
+        // Recalculate PickemStanding totals and propagate to Participant.TotalPoints
         foreach (var entry in entries)
         {
             var totalPickemPoints = entry.Picks
@@ -97,6 +97,10 @@ public class PickemScoringService(AppDbContext db, ILogger<PickemScoringService>
 
             var standing = await db.PickemStandings
                 .FirstOrDefaultAsync(s => s.ParticipantId == entry.ParticipantId);
+
+            // Capture the previous total BEFORE overwriting it
+            var previousPickemPoints = standing?.TotalPickemPoints ?? 0;
+            var delta = totalPickemPoints - previousPickemPoints;
 
             if (standing is null)
             {
@@ -111,14 +115,13 @@ public class PickemScoringService(AppDbContext db, ILogger<PickemScoringService>
                 standing.TotalPickemPoints = totalPickemPoints;
             }
 
-            // Also update Participant.TotalPoints with pickem points delta
-            // Recalculate from scratch to avoid drift: sum all pickem points earned
-            if (entry.Participant is not null)
+            // Propagate delta to Participant.TotalPoints
+            if (delta > 0 && entry.Participant is not null)
             {
-                var previousPickemPoints = standing?.TotalPickemPoints ?? 0;
-                var delta = totalPickemPoints - previousPickemPoints;
-                if (delta != 0)
-                    entry.Participant.TotalPoints += delta;
+                entry.Participant.TotalPoints += delta;
+                logger.LogInformation(
+                    "Participant {Id} earned {Delta} pickem point(s) (total pickem: {Total}).",
+                    entry.ParticipantId, delta, totalPickemPoints);
             }
         }
 
