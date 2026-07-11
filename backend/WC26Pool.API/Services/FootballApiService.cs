@@ -10,8 +10,24 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
     private readonly string _baseUrl = configuration["FootballApi:BaseUrl"] ?? "https://api.football-data.org/v4";
     private readonly string _competitionId = configuration["FootballApi:LeagueId"] ?? "WC";
 
-    public async Task<List<FootballApiMatch>> GetMatchesForDateAsync(DateOnly date, CancellationToken cancellationToken = default)
-        => await GetMatchesForRangeAsync(date, date, cancellationToken);
+    public async Task<List<FootballApiMatch>> GetMatchesForDateAsync(
+        DateOnly dateInBrasilia,
+        CancellationToken cancellationToken = default)
+    {
+        var brasiliaZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
+        var startOfDayBrasilia = new DateTime(
+            dateInBrasilia.Year, dateInBrasilia.Month, dateInBrasilia.Day,
+            0, 0, 0, DateTimeKind.Unspecified);
+
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startOfDayBrasilia, brasiliaZone);
+        var endUtc = startUtc.AddHours(27); // covers until 03:00 next day in Brasília
+
+        var dateFromUtc = DateOnly.FromDateTime(startUtc);
+        var dateToUtc = DateOnly.FromDateTime(endUtc);
+
+        return await GetMatchesForRangeAsync(dateFromUtc, dateToUtc, cancellationToken);
+    }
 
     public async Task<List<FootballApiMatch>> GetMatchesForRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
