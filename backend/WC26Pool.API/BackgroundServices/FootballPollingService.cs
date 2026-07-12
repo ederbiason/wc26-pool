@@ -205,6 +205,30 @@ public class FootballPollingService(
                 var updatedPenaltyHomeScore = apiMatch.Score?.Penalties?.Home;
                 var updatedPenaltyAwayScore = apiMatch.Score?.Penalties?.Away;
 
+                // Guard against regressive score updates during live matches.
+                // During EXTRA_TIME the API can return extraTime with partial goals before
+                // regularTime is populated, causing ResolveMatchScore to produce a lower total.
+                if (newStatus == MatchStatus.InProgress)
+                {
+                    var currentHome = existing.HomeScore ?? 0;
+                    var currentAway = existing.AwayScore ?? 0;
+                    var newHome = updatedHomeScore ?? 0;
+                    var newAway = updatedAwayScore ?? 0;
+
+                    if (newHome + newAway < currentHome + currentAway)
+                    {
+                        logger.LogWarning(
+                            "Match {Id} ({Home} vs {Away}): ignoring regressive score " +
+                            "({CurrentHome}-{CurrentAway} → {NewHome}-{NewAway}) during InProgress. " +
+                            "API may be returning partial extra time data.",
+                            existing.Id, existing.HomeTeam, existing.AwayTeam,
+                            currentHome, currentAway, newHome, newAway);
+
+                        updatedHomeScore = existing.HomeScore;
+                        updatedAwayScore = existing.AwayScore;
+                    }
+                }
+
                 var scoreChanged = existing.HomeScore != updatedHomeScore
                     || existing.AwayScore != updatedAwayScore
                     || existing.Duration != updatedDuration
