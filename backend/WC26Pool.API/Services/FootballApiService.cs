@@ -21,7 +21,7 @@ public class FootballApiService(HttpClient httpClient, IConfiguration configurat
             0, 0, 0, DateTimeKind.Unspecified);
 
         var startUtc = TimeZoneInfo.ConvertTimeToUtc(startOfDayBrasilia, brasiliaZone);
-        var endUtc = startUtc.AddHours(27); // covers until 03:00 next day in Brasília
+        var endUtc = startUtc.AddHours(30); // covers until 06:00 UTC next day even with exclusive dateTo
 
         var dateFromUtc = DateOnly.FromDateTime(startUtc);
         var dateToUtc = DateOnly.FromDateTime(endUtc);
