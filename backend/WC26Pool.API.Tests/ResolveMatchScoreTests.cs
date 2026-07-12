@@ -104,4 +104,27 @@ public class ResolveMatchScoreTests
         Assert.Null(home);
         Assert.Null(away);
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Caso 5 — EXTRA_TIME com regularTime null (caso real Norway x England)
+    // A API retornou regularTime={null,null} e extraTime={0,1}
+    // fullTime={1,2} é o fallback correto
+    // ──────────────────────────────────────────────────────────────────────────
+    [Fact]
+    public void ExtraTime_NullRegularTime_ReturnsFallbackFullTime()
+    {
+        var score = new FootballApiScore(
+            Winner:      "AWAY_TEAM",
+            Duration:    "EXTRA_TIME",
+            FullTime:    new FootballApiScoreDetail(1, 2),
+            RegularTime: new FootballApiScoreDetail(null, null), // API sends object but values are null
+            ExtraTime:   new FootballApiScoreDetail(0, 1),
+            Penalties:   null
+        );
+
+        var (home, away) = FootballPollingService.ResolveMatchScore(score);
+
+        Assert.Equal(1, home);
+        Assert.Equal(2, away);
+    }
 }
