@@ -77,6 +77,30 @@ public class FootballPollingService(
             if (_lastUpcomingSync != today)
                 await SyncUpcomingMatchesAsync(cancellationToken);
 
+            // --- Orphaned match check: Finished but PointsCalculated=false for 3+ hours ---
+            // Safety net for any match that slipped through the normal scoring pipeline.
+            var orphanedMatches = await db.Matches
+                .Where(m => m.Status == MatchStatus.Finished
+                         && !m.PointsCalculated
+                         && m.MatchDate.UtcDateTime < nowUtc.AddHours(-3))
+                .ToListAsync(cancellationToken);
+
+            foreach (var orphan in orphanedMatches)
+            {
+                logger.LogWarning(
+                    "Orphaned match {Id} ({Home} vs {Away}): Finished but PointsCalculated=false. " +
+                    "Triggering scoring.",
+                    orphan.Id, orphan.HomeTeam, orphan.AwayTeam);
+
+                await scoringService.CalculatePointsForMatchAsync(orphan.Id);
+
+                var isKnockout = orphan.Stage is
+                    "QUARTER_FINALS" or "SEMI_FINALS" or "THIRD_PLACE" or "FINAL";
+
+                if (isKnockout)
+                    await pickemScoringService.CalculatePickemPointsForMatchAsync(orphan.Id);
+            }
+
             // --- Overdue check: NotStarted match whose kickoff time has already passed ---
             var overdueMatches = await db.Matches
                 .Where(m => m.Status == MatchStatus.NotStarted && m.MatchDate.UtcDateTime <= nowUtc)
@@ -102,8 +126,10 @@ public class FootballPollingService(
                 await SyncMatchesAsync(db, apiMatches, scoringService, pickemScoringService, cancellationToken);
             }
 
+            // Extend window to 30h (matches the GetMatchesForDateAsync 30h UTC range)
+            // This covers matches up to 03:00 Brasília next day = 06:00 UTC next day.
             var dbMatches = await db.Matches
-                .Where(m => m.MatchDate.UtcDateTime >= todayStartUtc && m.MatchDate.UtcDateTime < todayEndUtc)
+                .Where(m => m.MatchDate.UtcDateTime >= todayStartUtc && m.MatchDate.UtcDateTime < todayStartUtc.AddHours(30))
                 .OrderBy(m => m.MatchDate)
                 .ToListAsync(cancellationToken);
 
@@ -199,6 +225,17 @@ public class FootballPollingService(
 
                 var oldHomeScore = existing.HomeScore;
                 var oldAwayScore = existing.AwayScore;
+
+                logger.LogDebug(
+                    "Processing match {Id} ({Home} vs {Away}): " +
+                    "status {PrevStatus}→{NewStatus}, " +
+                    "score {PrevHome}-{PrevAway}→{NewHome}-{NewAway}, " +
+                    "duration {PrevDuration}→{NewDuration}",
+                    existing.Id, existing.HomeTeam, existing.AwayTeam,
+                    previousStatus, newStatus,
+                    existing.HomeScore, existing.AwayScore,
+                    ResolveMatchScore(apiMatch.Score).Home, ResolveMatchScore(apiMatch.Score).Away,
+                    existing.Duration, duration);
 
                 var (updatedHomeScore, updatedAwayScore) = ResolveMatchScore(apiMatch.Score);
                 var updatedDuration = duration;
