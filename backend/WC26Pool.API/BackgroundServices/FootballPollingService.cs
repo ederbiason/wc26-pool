@@ -410,7 +410,19 @@ public class FootballPollingService(
         {
             "REGULAR" => (score.FullTime?.Home, score.FullTime?.Away),
 
-            "EXTRA_TIME" or "PENALTY_SHOOTOUT" => (
+            // When regularTime is null/empty (API sends partial data during live EXTRA_TIME),
+            // fall back to fullTime which is always the authoritative running total.
+            "EXTRA_TIME" => (
+                score.RegularTime?.Home is not null
+                    ? (score.RegularTime.Home ?? 0) + (score.ExtraTime?.Home ?? 0)
+                    : score.FullTime?.Home,
+                score.RegularTime?.Away is not null
+                    ? (score.RegularTime.Away ?? 0) + (score.ExtraTime?.Away ?? 0)
+                    : score.FullTime?.Away
+            ),
+
+            // PENALTY_SHOOTOUT: regularTime is always populated; exclude penalty goals.
+            "PENALTY_SHOOTOUT" => (
                 (score.RegularTime?.Home ?? 0) + (score.ExtraTime?.Home ?? 0),
                 (score.RegularTime?.Away ?? 0) + (score.ExtraTime?.Away ?? 0)
             ),
