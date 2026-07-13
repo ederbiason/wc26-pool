@@ -20,6 +20,7 @@ A lightweight full-stack web app where each participant can submit predictions, 
 - 📊 **Live ranking** updated automatically after each match ends
 - 📆 **Upcoming matches calendar** showing the next 7 days grouped by date
 - ⚽ **Knockout stage support** with extra time and penalty shootout predictions
+- 🏆 **Pick'em bracket** — predict the full knockout bracket (QF → SF → Final) before the quarterfinals start
 - 🔁 **Match revalidation** — score corrections after a result is posted are automatically detected and points are recalculated
 - 📱 **Mobile-first design** since everyone accesses it from their phones
 
@@ -45,6 +46,21 @@ A lightweight full-stack web app where each participant can submit predictions, 
 Points are never cumulative — only the highest applicable tier is awarded per match.
 
 When predicting a draw in the knockout stage, selecting the penalty shootout winner becomes mandatory, since a draw must be resolved. The backend enforces this validation and rejects draw predictions without a penalty winner.
+
+### Pick'em Bracket
+Before the quarterfinals start, each participant submits a full bracket predicting who will win each knockout round from the QF onwards. Exactly **7 picks** are required: 4 quarterfinal winners, 2 semifinal winners, and 1 champion.
+
+The backend enforces bracket consistency — a team can only appear in a later round if it was picked to advance from the previous one.
+
+| Round | Picks | Points per correct pick |
+|---|---|---|
+| Quarter-Finals | 4 | 1 pt |
+| Semi-Finals | 2 | 2 pts |
+| Final (Champion) | 1 | 5 pts |
+
+Pick'em points are added to each participant's global `TotalPoints` alongside their regular match prediction points.
+
+Brackets are hidden from other participants until either all six have submitted or the submission deadline passes — whichever comes first.
 
 ## Tech Stack
 
@@ -116,6 +132,13 @@ Midway through the tournament the group added new scoring rules for the knockout
 ### Timezone handling
 All date calculations use Brasília time (America/Sao\_Paulo) for determining "today", midnight resets, and grouping matches by display day. This is centralized in the `BrasiliaTime` helper class to avoid timezone bugs scattered across the codebase.
 
+### Pick'em bracket
+At the start of the quarterfinal phase the group introduced a bracket prediction game alongside the per-match bolão.
+
+Each participant fills in a bracket — picking QF winners, SF winners, and champion — before a fixed deadline. Submissions are immutable: once sent, picks are locked. The bracket UI is built around `PickemBracketSlot` rows seeded in the database (the 8 QF teams in bracket order). As knockout matches resolve, the `PickemScoringService` is called from `FootballPollingService` right after `ScoringService.CalculatePointsForMatchAsync`, marks the eliminated team's slot (`IsEliminated = true`), and scores only picks that reference either the winner or loser of that match — picks referencing other teams remain unscored until their match resolves.
+
+Points are propagated to `Participant.TotalPoints` as a delta: the service compares the new `PickemStanding.TotalPickemPoints` against the old value and only adds the difference, preventing double-counting across multiple scoring events.
+
 ## Project Structure
 
 ```
@@ -128,7 +151,7 @@ wc26-pool/
 │       ├── Endpoints/            # Minimal API route handlers
 │       ├── Helpers/              # BrasiliaTime timezone utilities
 │       ├── Models/               # Domain entities
-│       ├── Services/             # Business logic (scoring, visibility)
+│       ├── Services/             # Business logic (scoring, visibility, pickem)
 │       └── Program.cs
 └── frontend/
     ├── app/                      # Next.js App Router pages
@@ -149,6 +172,11 @@ wc26-pool/
 | `POST` | `/api/predictions` | Submit a prediction |
 | `GET` | `/api/participants` | List all participants |
 | `GET` | `/api/ranking` | Current standings |
+| `GET` | `/api/pickem/bracket` | QF bracket slots with elimination status |
+| `GET` | `/api/pickem/status` | Who has submitted their bracket + deadline state |
+| `GET` | `/api/pickem/entry/{participantId}` | A participant's bracket picks and scores |
+| `POST` | `/api/pickem/entry` | Submit a bracket entry (7 picks required) |
+| `GET` | `/api/pickem/standings` | Pick'em leaderboard |
 | `POST` | `/api/admin/sync-upcoming` | Manually trigger an upcoming matches sync |
 
 The `X-Participant-Id` request header is used to scope prediction visibility — each user only sees their own picks until the reveal condition is met.
