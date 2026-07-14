@@ -1,6 +1,5 @@
 import { getIdentity } from "@/lib/storage";
 import type {
-  Match,
   MatchWithVisibility,
   UpcomingDay,
   Participant,
