@@ -1,49 +1,72 @@
 "use client";
 
 import { useState } from "react";
-import type { BracketSlot, PickemBracket, PickemPickSubmission, PickemEntry } from "@/types";
+import type {
+  BracketSlot,
+  PickemBracket,
+  PickemEntry,
+  PickemPick,
+  PickemPickSubmission,
+  PickemRound,
+} from "@/types";
 
-interface Props {
+interface TeamCardSlot {
+  teamName: string;
+  teamFlag: string;
+}
+
+interface PickemBracketUIProps {
   bracket?: PickemBracket;
   entry?: PickemEntry;
   onSubmit?: (picks: PickemPickSubmission[]) => void;
   isSubmitting?: boolean;
 }
 
-export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Props) {
-  // Se já tem entry, exibe modo read-only
+export function PickemBracketUI({
+  bracket,
+  entry,
+  onSubmit,
+  isSubmitting,
+}: PickemBracketUIProps) {
   const isReadOnly = !!entry;
 
-  // Estado interativo
-  const [qfPicks, setQfPicks] = useState<(BracketSlot | null)[]>([null, null, null, null]);
+  const [qfPicks, setQfPicks] = useState<(BracketSlot | null)[]>([
+    null,
+    null,
+    null,
+    null,
+  ]);
   const [sfPicks, setSfPicks] = useState<(BracketSlot | null)[]>([null, null]);
   const [finalPick, setFinalPick] = useState<BracketSlot | null>(null);
 
-  // Derivar times das quartas se tiver bracket
   const qfSlots = bracket?.quarterFinals ?? [];
 
-  // Helper para buscar o pick do entry read-only
-  const getEntryPick = (round: string, slotIndex: number) => {
+  function getEntryPick(
+    round: PickemRound,
+    slotIndex: number
+  ): (TeamCardSlot & { isCorrect: boolean | null }) | null {
     if (!entry) return null;
-    const pick = entry.picks.find((p) => p.round === round && p.slotIndex === slotIndex);
+    const pick = entry.picks.find(
+      (p) => p.round === round && p.slotIndex === slotIndex
+    );
     if (!pick) return null;
     return {
       teamName: pick.chosenTeam,
       teamFlag: pick.chosenTeamFlag,
       isCorrect: pick.isCorrect,
     };
-  };
+  }
 
-  const getRealSfTeam = (qfMatchIndex: number): string | null => {
+  function getRealSfTeam(qfMatchIndex: number): string | null {
     const t1 = qfSlots.find((s) => s.slotIndex === qfMatchIndex * 2);
     const t2 = qfSlots.find((s) => s.slotIndex === qfMatchIndex * 2 + 1);
     if (!t1 || !t2) return null;
     if (t1.isEliminated && t1.eliminatedBy === t2.teamName) return t2.teamName;
     if (t2.isEliminated && t2.eliminatedBy === t1.teamName) return t1.teamName;
     return null;
-  };
+  }
 
-  const getRealFinalTeam = (sfMatchIndex: number): string | null => {
+  function getRealFinalTeam(sfMatchIndex: number): string | null {
     const t1Name = getRealSfTeam(sfMatchIndex * 2);
     const t2Name = getRealSfTeam(sfMatchIndex * 2 + 1);
     if (!t1Name || !t2Name) return null;
@@ -53,92 +76,89 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
     if (t1.isEliminated && t1.eliminatedBy === t2.teamName) return t2.teamName;
     if (t2.isEliminated && t2.eliminatedBy === t1.teamName) return t1.teamName;
     return null;
-  };
+  }
 
-  const handleQfPick = (matchIndex: number, team: BracketSlot) => {
+  function pickToSubmission(
+    round: PickemRound,
+    slotIndex: number,
+    pick: BracketSlot
+  ): PickemPickSubmission {
+    return {
+      round,
+      slotIndex,
+      chosenTeam: pick.teamName,
+      chosenTeamFlag: pick.teamFlag,
+    };
+  }
+
+  const handleQfPick = (matchIndex: number, team: BracketSlot): void => {
     if (isReadOnly) return;
     const newQf = [...qfPicks];
     newQf[matchIndex] = team;
     setQfPicks(newQf);
 
-    // Se mudar a QF e o time estava na SF, remover da SF
     const sfIndex = Math.floor(matchIndex / 2);
     if (sfPicks[sfIndex] && sfPicks[sfIndex]?.teamName !== team.teamName) {
       const newSf = [...sfPicks];
       newSf[sfIndex] = null;
       setSfPicks(newSf);
-      // E também remover da Final se estiver lá
       if (finalPick && finalPick.teamName !== team.teamName) {
         setFinalPick(null);
       }
     }
   };
 
-  const handleSfPick = (matchIndex: number, team: BracketSlot | null) => {
-    if (isReadOnly || !team) return;
+  const handleSfPick = (matchIndex: number, team: BracketSlot): void => {
+    if (isReadOnly) return;
     const newSf = [...sfPicks];
     newSf[matchIndex] = team;
     setSfPicks(newSf);
-
     if (finalPick && finalPick.teamName !== team.teamName) {
       setFinalPick(null);
     }
   };
 
-  const handleFinalPick = (team: BracketSlot | null) => {
-    if (isReadOnly || !team) return;
+  const handleFinalPick = (team: BracketSlot): void => {
+    if (isReadOnly) return;
     setFinalPick(team);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (): void => {
     if (!onSubmit || isReadOnly) return;
-    
+
     const picks: PickemPickSubmission[] = [];
-    
+
     qfPicks.forEach((pick, i) => {
-      if (pick) {
-        picks.push({
-          round: "QUARTER_FINAL",
-          slotIndex: i,
-          chosenTeam: pick.teamName,
-          chosenTeamFlag: pick.teamFlag,
-        });
-      }
+      if (pick) picks.push(pickToSubmission("QUARTER_FINAL", i, pick));
     });
-
     sfPicks.forEach((pick, i) => {
-      if (pick) {
-        picks.push({
-          round: "SEMI_FINAL",
-          slotIndex: i,
-          chosenTeam: pick.teamName,
-          chosenTeamFlag: pick.teamFlag,
-        });
-      }
+      if (pick) picks.push(pickToSubmission("SEMI_FINAL", i, pick));
     });
-
-    if (finalPick) {
-      picks.push({
-        round: "FINAL",
-        slotIndex: 0,
-        chosenTeam: finalPick.teamName,
-        chosenTeamFlag: finalPick.teamFlag,
-      });
-    }
+    if (finalPick) picks.push(pickToSubmission("FINAL", 0, finalPick));
 
     onSubmit(picks);
   };
 
-  const allPicked = qfPicks.every(Boolean) && sfPicks.every(Boolean) && finalPick !== null;
+  const allPicked =
+    qfPicks.every(Boolean) && sfPicks.every(Boolean) && finalPick !== null;
+
+  function getCorrectness(
+    pick: PickemPick | null,
+    teamName: string | undefined
+  ): boolean | null {
+    if (!pick || !teamName) return null;
+    if (pick.chosenTeam !== teamName) return null;
+    return pick.isCorrect;
+  }
 
   const renderTeamCard = (
-    team: { teamName: string; teamFlag: string } | null,
+    team: TeamCardSlot | null,
     isSelected: boolean,
     onClick: () => void,
     disabled: boolean,
-    selectionIsCorrect?: boolean | null,
-    actualTeamName?: string | null
-  ) => {
+    selectionIsCorrect: boolean | null = null,
+    actualTeamName: string | null = null
+  ): React.ReactElement => {
     return (
       <button
         onClick={onClick}
@@ -154,7 +174,11 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
         <div className="relative flex-none">
           <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-surface2 flex items-center justify-center">
             {team?.teamFlag ? (
-              <img src={team.teamFlag} alt={team.teamName} className="w-full h-full object-cover" />
+              <img
+                src={team.teamFlag}
+                alt={team.teamName}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <span className="text-sm">🏳️</span>
             )}
@@ -171,11 +195,17 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
           )}
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <span className={`text-sm font-semibold truncate ${isSelected ? "text-brand-gold" : "text-[#E8F5E9]"}`}>
+          <span
+            className={`text-sm font-semibold truncate ${
+              isSelected ? "text-brand-gold" : "text-[#E8F5E9]"
+            }`}
+          >
             {team?.teamName || "A definir"}
           </span>
           {isReadOnly && actualTeamName && actualTeamName !== team?.teamName && (
-            <span className="text-[10px] text-[#86B59A] truncate mt-0.5">Real: {actualTeamName}</span>
+            <span className="text-[10px] text-[#86B59A] truncate mt-0.5">
+              Real: {actualTeamName}
+            </span>
           )}
         </div>
       </button>
@@ -191,20 +221,31 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[0, 1, 2, 3].map((matchIndex) => {
             const t1 = qfSlots.find((s) => s.slotIndex === matchIndex * 2);
-            const t2 = qfSlots.find((s) => s.slotIndex === matchIndex * 2 + 1);
+            const t2 = qfSlots.find(
+              (s) => s.slotIndex === matchIndex * 2 + 1
+            );
+
+            const entryPick = isReadOnly
+              ? entry?.picks.find(
+                  (p) => p.round === "QUARTER_FINAL" && p.slotIndex === matchIndex
+                ) ?? null
+              : null;
 
             const pickedTeam = isReadOnly
               ? getEntryPick("QUARTER_FINAL", matchIndex)
               : qfPicks[matchIndex];
 
             return (
-              <div key={`qf-${matchIndex}`} className="flex flex-col gap-2 p-3 bg-brand-surface2 rounded-2xl border border-[#1E4A32]">
+              <div
+                key={`qf-${matchIndex}`}
+                className="flex flex-col gap-2 p-3 bg-brand-surface2 rounded-2xl border border-[#1E4A32]"
+              >
                 {renderTeamCard(
-                  t1 || null,
+                  t1 ?? null,
                   pickedTeam?.teamName === t1?.teamName,
                   () => t1 && handleQfPick(matchIndex, t1),
                   !t1,
-                  isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null
+                  getCorrectness(entryPick, t1?.teamName)
                 )}
                 <div className="flex justify-center -my-1 relative z-10">
                   <span className="bg-[#1E4A32] text-[#86B59A] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
@@ -212,11 +253,11 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   </span>
                 </div>
                 {renderTeamCard(
-                  t2 || null,
+                  t2 ?? null,
                   pickedTeam?.teamName === t2?.teamName,
                   () => t2 && handleQfPick(matchIndex, t2),
                   !t2,
-                  isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null
+                  getCorrectness(entryPick, t2?.teamName)
                 )}
               </div>
             );
@@ -230,21 +271,33 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[0, 1].map((matchIndex) => {
-            const t1 = isReadOnly ? getEntryPick("QUARTER_FINAL", matchIndex * 2) : qfPicks[matchIndex * 2];
-            const t2 = isReadOnly ? getEntryPick("QUARTER_FINAL", matchIndex * 2 + 1) : qfPicks[matchIndex * 2 + 1];
+            const t1 = isReadOnly
+              ? getEntryPick("QUARTER_FINAL", matchIndex * 2)
+              : qfPicks[matchIndex * 2];
+            const t2 = isReadOnly
+              ? getEntryPick("QUARTER_FINAL", matchIndex * 2 + 1)
+              : qfPicks[matchIndex * 2 + 1];
+
+            const entryPick =
+              entry?.picks.find(
+                (p) => p.round === "SEMI_FINAL" && p.slotIndex === matchIndex
+              ) ?? null;
 
             const pickedTeam = isReadOnly
               ? getEntryPick("SEMI_FINAL", matchIndex)
               : sfPicks[matchIndex];
 
             return (
-              <div key={`sf-${matchIndex}`} className="flex flex-col gap-2 p-3 bg-brand-surface2 rounded-2xl border border-[#1E4A32]">
+              <div
+                key={`sf-${matchIndex}`}
+                className="flex flex-col gap-2 p-3 bg-brand-surface2 rounded-2xl border border-[#1E4A32]"
+              >
                 {renderTeamCard(
-                  t1 as any,
+                  t1,
                   pickedTeam?.teamName === t1?.teamName,
                   () => t1 && handleSfPick(matchIndex, t1 as BracketSlot),
                   !t1,
-                  isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                  getCorrectness(entryPick, t1?.teamName),
                   getRealSfTeam(matchIndex * 2)
                 )}
                 <div className="flex justify-center -my-1 relative z-10">
@@ -253,11 +306,11 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                   </span>
                 </div>
                 {renderTeamCard(
-                  t2 as any,
+                  t2,
                   pickedTeam?.teamName === t2?.teamName,
                   () => t2 && handleSfPick(matchIndex, t2 as BracketSlot),
                   !t2,
-                  isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                  getCorrectness(entryPick, t2?.teamName),
                   getRealSfTeam(matchIndex * 2 + 1)
                 )}
               </div>
@@ -275,16 +328,22 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
             {(() => {
               const t1 = isReadOnly ? getEntryPick("SEMI_FINAL", 0) : sfPicks[0];
               const t2 = isReadOnly ? getEntryPick("SEMI_FINAL", 1) : sfPicks[1];
-              const pickedTeam = isReadOnly ? getEntryPick("FINAL", 0) : finalPick;
+              const pickedTeam = isReadOnly
+                ? getEntryPick("FINAL", 0)
+                : finalPick;
+              const entryPick =
+                entry?.picks.find(
+                  (p) => p.round === "FINAL" && p.slotIndex === 0
+                ) ?? null;
 
               return (
                 <>
                   {renderTeamCard(
-                    t1 as any,
+                    t1,
                     pickedTeam?.teamName === t1?.teamName,
                     () => t1 && handleFinalPick(t1 as BracketSlot),
                     !t1,
-                    isReadOnly && pickedTeam?.teamName === t1?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                    getCorrectness(entryPick, t1?.teamName),
                     getRealFinalTeam(0)
                   )}
                   <div className="flex justify-center -my-1 relative z-10">
@@ -293,11 +352,11 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
                     </span>
                   </div>
                   {renderTeamCard(
-                    t2 as any,
+                    t2,
                     pickedTeam?.teamName === t2?.teamName,
                     () => t2 && handleFinalPick(t2 as BracketSlot),
                     !t2,
-                    isReadOnly && pickedTeam?.teamName === t2?.teamName ? (pickedTeam as any)?.isCorrect : null,
+                    getCorrectness(entryPick, t2?.teamName),
                     getRealFinalTeam(1)
                   )}
                 </>
@@ -326,7 +385,9 @@ export function PickemBracketUI({ bracket, entry, onSubmit, isSubmitting }: Prop
               {entry.picks.filter((p) => p.isCorrect === true).length}/7
             </span>
             <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest">
-              Picks corretos — {entry.picks.reduce((acc, p) => acc + (p.pointsEarned ?? 0), 0)} pts
+              Picks corretos —{" "}
+              {entry.picks.reduce((acc, p) => acc + (p.pointsEarned ?? 0), 0)}{" "}
+              pts
             </span>
           </div>
         </div>
