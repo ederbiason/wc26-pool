@@ -1,5 +1,11 @@
 export type MatchStatus = "NotStarted" | "InProgress" | "Finished";
 
+export type MatchDuration = "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
+
+export type PenaltySide = "HOME" | "AWAY";
+
+export type PickemRound = "QUARTER_FINAL" | "SEMI_FINAL" | "FINAL";
+
 export interface Match {
   id: number;
   externalId: string;
@@ -12,7 +18,7 @@ export interface Match {
   homeScore: number | null;
   awayScore: number | null;
   pointsCalculated: boolean;
-  duration: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
+  duration: MatchDuration;
   stage: string;
   penaltyHomeScore: number | null;
   penaltyAwayScore: number | null;
@@ -29,7 +35,7 @@ export interface Prediction {
   predictedAwayScore: number;
   createdAt: string;
   pointsEarned: number | null;
-  penaltyWinnerTeam: "HOME" | "AWAY" | null;
+  penaltyWinnerTeam: PenaltySide | null;
 }
 
 export interface ParticipantSummary {
@@ -47,7 +53,6 @@ export interface PredictionVisibility {
 export interface MatchWithVisibility extends Match {
   predictionVisibility: PredictionVisibility;
 }
-
 
 export interface Participant {
   id: number;
@@ -88,7 +93,7 @@ export interface PickemBracket {
 }
 
 export interface PickemPickSubmission {
-  round: "QUARTER_FINAL" | "SEMI_FINAL" | "FINAL";
+  round: PickemRound;
   slotIndex: number;
   chosenTeam: string;
   chosenTeamFlag: string;
@@ -100,9 +105,18 @@ export interface PickemEntrySubmission {
 }
 
 export interface PickemStatus {
-  completed: { participantId: number; participantName: string }[];
-  pending: { participantId: number; participantName: string }[];
+  completed: ParticipantSummary[];
+  pending: ParticipantSummary[];
   isRevealed: boolean;
+}
+
+export interface PickemPick {
+  round: PickemRound;
+  slotIndex: number;
+  chosenTeam: string;
+  chosenTeamFlag: string;
+  isCorrect: boolean | null;
+  pointsEarned: number | null;
 }
 
 export interface PickemEntry {
@@ -111,12 +125,5 @@ export interface PickemEntry {
   participantName: string;
   createdAt: string;
   isLocked: boolean;
-  picks: {
-    round: string;
-    slotIndex: number;
-    chosenTeam: string;
-    chosenTeamFlag: string;
-    isCorrect: boolean | null;
-    pointsEarned: number | null;
-  }[];
+  picks: PickemPick[];
 }
