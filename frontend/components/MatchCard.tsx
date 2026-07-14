@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Match, PredictionVisibility, Prediction } from "@/types";
+import type { Match, PredictionVisibility, Prediction, PenaltySide } from "@/types";
 import { useIdentity } from "@/components/IdentityProvider";
 import { PredictionForm } from "@/components/PredictionForm";
 import { formatTimeBrasilia } from "@/lib/api";
@@ -59,7 +59,8 @@ function TeamBlock({
             alt={name}
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
+              const img = e.currentTarget;
+              img.style.display = "none";
             }}
           />
         ) : (
@@ -211,14 +212,12 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
   const canPredict = match.status === "NotStarted" && !myPrediction;
 
   const handlePredicted = useCallback(
-    (home: number, away: number, penaltyWinnerTeam: "HOME" | "AWAY" | null) => {
+    (home: number, away: number, penaltyWinnerTeam: PenaltySide | null) => {
       setLocalPrediction({ home, away, penaltyWinnerTeam });
       onPredicted();
     },
     [onPredicted]
   );
-
-  const showPredictionsSection = true;
 
   return (
     <div className="bg-brand-surface rounded-2xl border border-[#1E4A32] overflow-hidden">
@@ -245,8 +244,7 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
         />
       </div>
 
-      {showPredictionsSection && (
-        <div className="border-t border-[#1E4A32] px-4 py-3 flex flex-col gap-0.5">
+      <div className="border-t border-[#1E4A32] px-4 py-3 flex flex-col gap-0.5">
           <span className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest mb-1.5">
             Palpites
           </span>
@@ -336,7 +334,6 @@ export function MatchCard({ match, visibility, onPredicted }: Props) {
             </>
           )}
         </div>
-      )}
 
       {match.status !== "NotStarted" && (
         <div className="px-4 pb-4">
