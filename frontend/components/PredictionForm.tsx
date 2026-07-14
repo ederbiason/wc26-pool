@@ -4,18 +4,18 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useIdentity } from "@/components/IdentityProvider";
-import type { Match } from "@/types";
+import type { Match, PenaltySide } from "@/types";
 
-interface Props {
+interface PredictionFormProps {
   match: Match;
-  onSuccess: (home: number, away: number, penaltyWinnerTeam: "HOME" | "AWAY" | null) => void;
+  onSuccess: (home: number, away: number, penaltyWinnerTeam: PenaltySide | null) => void;
 }
 
-export function PredictionForm({ match, onSuccess }: Props) {
+export function PredictionForm({ match, onSuccess }: PredictionFormProps) {
   const { identity } = useIdentity();
   const [home, setHome] = useState<string>("");
   const [away, setAway] = useState<string>("");
-  const [penaltyWinnerTeam, setPenaltyWinnerTeam] = useState<"HOME" | "AWAY" | null>(null);
+  const [penaltyWinnerTeam, setPenaltyWinnerTeam] = useState<PenaltySide | null>(null);
   const [loading, setLoading] = useState(false);
 
   const isDraw = home !== "" && away !== "" && home === away;
@@ -28,7 +28,7 @@ export function PredictionForm({ match, onSuccess }: Props) {
       return;
     }
     
-    let finalPenaltyWinnerTeam = null;
+    let finalPenaltyWinnerTeam: PenaltySide | null = null;
     if (h === a) {
       if (!penaltyWinnerTeam) {
         toast.error("Por favor, selecione o vencedor dos pênaltis.");
