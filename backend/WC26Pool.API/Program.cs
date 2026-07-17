@@ -20,6 +20,7 @@ builder.Services.AddScoped<ScoringService>();
 builder.Services.AddScoped<PickemScoringService>();
 builder.Services.AddScoped<PredictionVisibilityService>();
 builder.Services.AddScoped<FootballApiService>();
+builder.Services.AddScoped<StatsService>();
 builder.Services.AddHttpClient<FootballApiService>();
 
 builder.Services.AddSingleton<FootballPollingService>();
@@ -67,6 +68,7 @@ app.MapRankingEndpoints();
 app.MapAdminEndpoints();
 app.MapParticipantEndpoints();
 app.MapPickemEndpoints();
+app.MapStatsEndpoints();
 
 app.MapGet("/health", async (AppDbContext db) =>
 {
