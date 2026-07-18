@@ -8,6 +8,7 @@ import type {
   PickemStatus,
   PickemEntry,
   PickemEntrySubmission,
+  StatsResponse,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
@@ -74,6 +75,8 @@ export const api = {
     get<PickemEntry>(`/api/pickem/entry/${participantId}`),
   submitPickemEntry: (payload: PickemEntrySubmission) =>
     post<{ id: number }>("/api/pickem/entry", payload),
+
+  getStats: () => get<StatsResponse>("/api/stats"),
 };
 
 export function formatTimeBrasilia(utcDateString: string): string {

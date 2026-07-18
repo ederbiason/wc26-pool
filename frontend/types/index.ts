@@ -127,3 +127,50 @@ export interface PickemEntry {
   isLocked: boolean;
   picks: PickemPick[];
 }
+
+export interface ParticipantStats {
+  participantId: number;
+  participantName: string;
+  totalPoints: number;
+  totalPredictions: number;
+  exactScores: number;
+  correctResults: number;
+  wrongPredictions: number;
+  hitRate: number;
+  pointsByStage: {
+    groupStage: number;
+    knockoutStage: number;
+  };
+  pickemPoints: number;
+}
+
+export interface HighlightEntry {
+  participantName: string;
+  count?: number;
+  rate?: number;
+  points?: number;
+}
+
+export interface GlobalHighlights {
+  mostExactScores: { participantName: string; count: number };
+  bestHitRate: { participantName: string; rate: number };
+  bestKnockout: { participantName: string; points: number };
+  pickemLeader: { participantName: string; points: number };
+}
+
+export interface MatchHighlight {
+  matchId: number;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  stage: string;
+  exactScoreCount: number;
+  correctResultCount: number;
+}
+
+export interface StatsResponse {
+  participants: ParticipantStats[];
+  highlights: GlobalHighlights;
+  matchHighlights: MatchHighlight[];
+}
