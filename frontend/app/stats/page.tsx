@@ -16,8 +16,9 @@ const STAGE_LABELS: Record<string, string> = {
   FINAL: "Final",
 };
 
-function stageBadge(stage: string): string {
-  return STAGE_LABELS[stage] ?? stage;
+function stageBadge(stage: string | null | undefined): string {
+  if (!stage) return "Grupos";
+  return STAGE_LABELS[stage] ?? "Grupos";
 }
 
 function HighlightCard({
@@ -25,19 +26,35 @@ function HighlightCard({
   title,
   name,
   value,
+  negative = false,
 }: {
   emoji: string;
   title: string;
   name: string;
   value: string;
+  negative?: boolean;
 }) {
   return (
-    <div className="flex-none w-44 bg-brand-surface2 border border-[#1E4A32] rounded-2xl p-4 flex flex-col gap-2 shadow-md">
+    <div
+      className={`flex-none w-44 rounded-2xl p-4 flex flex-col gap-2 shadow-md border ${
+        negative
+          ? "bg-red-950/40 border-red-900/50"
+          : "bg-brand-surface2 border-[#1E4A32]"
+      }`}
+    >
       <span className="text-2xl leading-none">{emoji}</span>
-      <p className="text-[#86B59A] text-[10px] font-bold uppercase tracking-widest leading-tight">
+      <p
+        className={`text-[10px] font-bold uppercase tracking-widest leading-tight ${
+          negative ? "text-red-400/70" : "text-[#86B59A]"
+        }`}
+      >
         {title}
       </p>
-      <p className="text-brand-gold font-display text-lg leading-none tracking-wide truncate">
+      <p
+        className={`font-display text-lg leading-none tracking-wide truncate ${
+          negative ? "text-red-300" : "text-brand-gold"
+        }`}
+      >
         {name}
       </p>
       <p className="text-[#E8F5E9] text-xs font-medium leading-tight">{value}</p>
@@ -127,6 +144,27 @@ export default function StatsPage() {
         .slice(0, 5)
     : [];
 
+  const MIN_PREDICTIONS = 5;
+  const eligibleParticipants = stats?.participants.filter(
+    (p) => p.totalPredictions >= MIN_PREDICTIONS
+  ) ?? [];
+
+  const bagre = eligibleParticipants.length > 0
+    ? [...eligibleParticipants].sort(
+        (a, b) =>
+          a.exactScores - b.exactScores ||
+          a.participantName.localeCompare(b.participantName)
+      )[0]
+    : null;
+
+  const clown = stats && stats.participants.length > 0
+    ? [...stats.participants].sort(
+        (a, b) =>
+          b.wrongPredictions - a.wrongPredictions ||
+          a.participantName.localeCompare(b.participantName)
+      )[0]
+    : null;
+
   return (
     <div className="flex flex-col flex-1 pb-20">
       <AppHeader />
@@ -146,14 +184,14 @@ export default function StatsPage() {
           </h2>
           <div className="flex gap-3 overflow-x-auto -mx-4 px-4 pb-2 scrollbar-hide">
             {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
+              Array.from({ length: 6 }).map((_, i) => (
                 <HighlightCardSkeleton key={i} />
               ))
             ) : (
               <>
                 <HighlightCard
                   emoji="🎯"
-                  title="Rei dos Placares"
+                  title="Nojeira Master"
                   name={stats?.highlights.mostExactScores.participantName ?? "—"}
                   value={`${stats?.highlights.mostExactScores.count ?? 0} placares exatos`}
                 />
@@ -174,6 +212,20 @@ export default function StatsPage() {
                   title="Líder do Pick'em"
                   name={stats?.highlights.pickemLeader.participantName ?? "—"}
                   value={`${stats?.highlights.pickemLeader.points ?? 0} pts no pick'em`}
+                />
+                <HighlightCard
+                  emoji="🐟"
+                  title="Bagre dos Placares"
+                  name={bagre?.participantName ?? "—"}
+                  value={`${bagre?.exactScores ?? 0} placares exatos`}
+                  negative
+                />
+                <HighlightCard
+                  emoji="🤡"
+                  title="Especialista em Errar"
+                  name={clown?.participantName ?? "—"}
+                  value={`${clown?.wrongPredictions ?? 0} palpites errados`}
+                  negative
                 />
               </>
             )}
@@ -206,9 +258,6 @@ export default function StatsPage() {
                     </th>
                     <th className="text-center text-[#86B59A] font-bold uppercase tracking-widest pb-1 px-2">
                       Aprov.
-                    </th>
-                    <th className="text-center text-[#86B59A] font-bold uppercase tracking-widest pb-1 px-2">
-                      Grupos
                     </th>
                     <th className="text-center text-[#86B59A] font-bold uppercase tracking-widest pb-1 px-2">
                       Mata
@@ -254,9 +303,6 @@ export default function StatsPage() {
                           <td className="py-2.5 px-2 text-center text-[#E8F5E9] tabular-nums">
                             {p.hitRate.toFixed(1)}%
                           </td>
-                          <td className="py-2.5 px-2 text-center text-[#E8F5E9] tabular-nums">
-                            {p.pointsByStage.groupStage}
-                          </td>
                           <td className="py-2.5 pr-3 pl-2 text-center rounded-r-xl text-[#E8F5E9] tabular-nums">
                             {p.pointsByStage.knockoutStage}
                           </td>
@@ -277,7 +323,7 @@ export default function StatsPage() {
         {/* Seção 3 — Jogos mais acertados */}
         <div className="flex flex-col gap-3">
           <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest">
-            🎯 Jogos mais acertados
+            🔥 Jogos que o grupo arrasoooou
           </h2>
           {isLoading ? (
             <div className="flex flex-col gap-2">
@@ -305,7 +351,7 @@ export default function StatsPage() {
         {/* Seção 4 — Jogos mais errados */}
         <div className="flex flex-col gap-3">
           <h2 className="text-brand-gold text-xs font-bold uppercase tracking-widest">
-            💀 Jogos mais errados
+            💀 Jogos que ninguém entendeu nada
           </h2>
           {isLoading ? (
             <div className="flex flex-col gap-2">
