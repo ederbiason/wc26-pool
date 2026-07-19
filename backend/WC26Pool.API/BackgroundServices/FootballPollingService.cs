@@ -223,6 +223,19 @@ public class FootballPollingService(
             {
                 var previousStatus = existing.Status;
 
+                // When called from SyncUpcomingMatchesAsync, scoringService is null.
+                // The range API returns TIMED/SCHEDULED even for live/finished matches,
+                // so we must never let the upcoming sync revert a match that has already started.
+                if (scoringService is null &&
+                    (existing.Status == MatchStatus.InProgress ||
+                     existing.Status == MatchStatus.Finished))
+                {
+                    logger.LogInformation(
+                        "Match {Id} ({Home} vs {Away}) is {Status} — skipping upcoming sync update.",
+                        existing.Id, existing.HomeTeam, existing.AwayTeam, existing.Status);
+                    continue;
+                }
+
                 var oldHomeScore = existing.HomeScore;
                 var oldAwayScore = existing.AwayScore;
 
